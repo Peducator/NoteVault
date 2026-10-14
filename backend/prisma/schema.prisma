@@ -1,0 +1,122 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id                 Int                  @id @default(autoincrement())
+  uuid               String?              @unique @default(uuid()) @map("uuid")
+  companyName        String               @map("company_name")
+  code               String               @unique // Mã định danh công ty (ví dụ: fpt, vinfast, notevault)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  users              User[]
+  categories         Category[]
+  transactions       Transaction[]
+  bankingInformation BankingInformation[]
+  departmentBudgets  DepartmentBudget[]
+
+  @@map("tenants")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id                 Int                  @id @default(autoincrement())
+  uuid               String?              @unique @default(uuid()) @map("uuid")
+  email              String               @unique
+  password           String
+  name               String?
+  employeeCode       String?              @map("employee_code") // Mã số nhân viên (ví dụ: VF-1042)
+  department         String?              @map("department") // Phòng ban (ví dụ: Marketing)
+  role               Role                 @default(USER)
+  deletedAt          DateTime?            @map("deleted_at")
+  tenantId           Int?                 @map("tenant_id")
+  tenant             Tenant?              @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at")
+  categories         Category[]
+  transactions       Transaction[]
+  bankingInformation BankingInformation[]
+
+  @@map("users")
+}
+
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String
+  type         CategoryType  @default(EXPENSE)
+  icon         String?       @default("default")
+  userId       Int?          @map("user_id") // null = danh mục hệ thống dùng chung
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId     Int?          @map("tenant_id")
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  transactions Transaction[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id              Int          @id @default(autoincrement())
+  userId          Int          @map("user_id")
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId        Int?         @map("tenant_id")
+  tenant          Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  categoryId      Int          @map("category_id")
+  category        Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount          Float        // Số tiền thu/chi
+  type            CategoryType @default(EXPENSE)
+  transactionDate DateTime     @default(now()) @map("transaction_date")
+  note            String?
+  s3Key           String?      @map("s3_key") // Đường dẫn ảnh hóa đơn trên S3: tenants/{tenantId}/users/{userId}/receipts/YYYY-MM-DD/{fileName}
+  scanStatus      String       @default("CLEAN") @map("scan_status") // PENDING_SCAN, CLEAN, INFECTED
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@map("transactions")
+}
+
+model BankingInformation {
+  id            Int          @id @default(autoincrement())
+  userId        Int          @map("user_id")
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId      Int?         @map("tenant_id")
+  tenant        Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  bankName      String       @map("bank_name") // Tên ngân hàng (ví dụ: Techcombank, Vietcombank, MB Bank, ACB...)
+  bankCode      String?      @map("bank_code") // Mã định danh ngân hàng (TCB, VCB, MB, ACB, VPB...)
+  accountNumber String       @map("account_number") // Số tài khoản ngân hàng
+  accountHolder String       @map("account_holder") // Tên chủ tài khoản (in hoa, ví dụ: LAN NGUYEN)
+  branch        String?      @map("branch") // Chi nhánh ngân hàng (ví dụ: Chi nhánh Hoàn Kiếm)
+  isDefault     Boolean      @default(false) @map("is_default") // Đặt làm tài khoản nhận tiền hoàn ứng mặc định
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  @@map("banking_information")
+}
+
+model DepartmentBudget {
+  id             Int      @id @default(autoincrement())
+  departmentName String   @map("department_name") // ví dụ: Marketing, Kỹ thuật, Kinh doanh
+  tenantId       Int?     @map("tenant_id")
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  allowance      Float    // Số tiền ngân sách phân bổ
+  month          Int      // Tháng
+  year           Int      // Năm
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([departmentName, month, year])
+  @@map("department_budgets")
+}
