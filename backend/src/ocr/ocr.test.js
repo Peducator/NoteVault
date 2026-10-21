@@ -24,9 +24,32 @@ describe('OCR Service & API Tests', () => {
   });
 
   describe('POST /api/ocr/scan Endpoint', () => {
+    const jwt = require('jsonwebtoken');
+    const config = require('../config/env');
+    let validToken;
+
+    beforeAll(() => {
+      validToken = jwt.sign(
+        { userId: 1, email: 'user@fpt.com', tenantId: 10, role: 'MEMBER' },
+        config.jwt.secret,
+        { expiresIn: '20m' }
+      );
+    });
+
+    it('từ chối 401 nếu không có Bearer token hợp lệ', async () => {
+      const res = await request(app)
+        .post('/api/ocr/scan')
+        .send({});
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toMatch(/token/i);
+    });
+
     it('trả về 400 nếu body rỗng không có imageBase64', async () => {
       const res = await request(app)
         .post('/api/ocr/scan')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({});
 
       expect(res.status).toBe(400);
@@ -85,6 +108,7 @@ describe('OCR Service & API Tests', () => {
 
       const res = await request(app)
         .post('/api/ocr/scan')
+        .set('Authorization', `Bearer ${validToken}`)
         .send({
           imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
           mimeType: 'image/png',

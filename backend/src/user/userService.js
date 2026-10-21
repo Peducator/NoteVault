@@ -16,7 +16,37 @@ const getProfile = async (userId) => {
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
+      unitId: true,
+      unit: {
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+          ownerId: true,
+        },
+      },
+      ownedUnits: {
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+        },
+      },
+      unitMemberships: {
+        include: {
+          unit: {
+            select: {
+              id: true,
+              name: true,
+              parentId: true,
+              ownerId: true,
+              allowMemberViewBalance: true,
+              allowCreateSubUnit: true,
+            },
+          },
+        },
+        orderBy: { joinedAt: 'asc' },
+      },
       role: true,
       tenantId: true,
       tenant: {
@@ -53,6 +83,45 @@ const getProfile = async (userId) => {
       data: { uuid: user.tenant.uuid },
     });
   }
+
+  if (user.unitId) {
+    try {
+      const { calculateSafeBalance } = require('../unit/unitService');
+      const safeBal = await calculateSafeBalance(user.unitId);
+      if (user.unit) {
+        user.unit.safeBalance = safeBal.toString();
+      }
+    } catch (e) {
+      // Ignore if calculation encounters edge case
+    }
+  }
+
+  // Hợp nhất danh sách nhóm mà user tham gia
+  const groupMap = new Map();
+  if (user.unit) {
+    groupMap.set(user.unit.id, {
+      id: user.unit.id,
+      name: user.unit.name,
+      parentId: user.unit.parentId,
+      ownerId: user.unit.ownerId,
+      isOwner: user.unit.ownerId === user.id,
+    });
+  }
+  if (user.unitMemberships) {
+    user.unitMemberships.forEach((m) => {
+      if (m.unit) {
+        groupMap.set(m.unit.id, {
+          id: m.unit.id,
+          name: m.unit.name,
+          parentId: m.unit.parentId,
+          ownerId: m.unit.ownerId,
+          isOwner: m.unit.ownerId === user.id,
+          joinedAt: m.joinedAt,
+        });
+      }
+    });
+  }
+  user.groups = Array.from(groupMap.values());
 
   return user;
 };
@@ -109,7 +178,7 @@ const updateProfile = async (userId, { name, password }) => {
 /**
  * 3. Tạo nhân viên mới trong cùng tổ chức/tenant (Chỉ dành cho ADMIN)
  */
-const createEmployee = async ({ adminTenantId, email, password, name, role, department, employeeCode }) => {
+const createEmployee = async ({ adminTenantId, email, password, name, role, department, employeeCode, unitId }) => {
   if (!email || !password) {
     const error = new Error('Email và mật khẩu là bắt buộc');
     error.statusCode = 400;
@@ -143,6 +212,18 @@ const createEmployee = async ({ adminTenantId, email, password, name, role, depa
   const crypto = require('crypto');
   const genCode = employeeCode ? String(employeeCode).trim() : `NV-${Math.floor(100000 + Math.random() * 900000)}`;
 
+  // Kiểm tra unitId thuộc cùng tenant của admin (chống cross-tenant unit)
+  if (unitId && adminTenantId) {
+    const unit = await prisma.unit.findFirst({
+      where: { id: Number(unitId), tenantId: Number(adminTenantId), deletedAt: null },
+    });
+    if (!unit) {
+      const error = new Error('Đơn vị (unitId) không tồn tại hoặc không thuộc doanh nghiệp của bạn');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   const newEmployee = await prisma.user.create({
     data: {
       uuid: crypto.randomUUID(),
@@ -150,8 +231,8 @@ const createEmployee = async ({ adminTenantId, email, password, name, role, depa
       password: hashedPassword,
       name: name ? String(name).trim() : null,
       employeeCode: genCode,
-      department: department ? String(department).trim() : 'Marketing',
-      role: role === 'ADMIN' ? 'ADMIN' : 'USER',
+      unitId: unitId ? Number(unitId) : null,
+      role: (role === 'ROOT' || role === 'ADMIN') ? 'ROOT' : 'MEMBER',
       tenantId: adminTenantId ? Number(adminTenantId) : null,
     },
     select: {
@@ -160,7 +241,7 @@ const createEmployee = async ({ adminTenantId, email, password, name, role, depa
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
+      unitId: true,
       role: true,
       tenantId: true,
       createdAt: true,
@@ -171,7 +252,7 @@ const createEmployee = async ({ adminTenantId, email, password, name, role, depa
 };
 
 /**
- * 4. Lấy danh sách nhân viên trong tenant (Chỉ dành cho ADMIN)
+ * 4. Lấy danh sách nhân viên trong tenant
  * Tự động lọc bỏ các nhân viên đã bị xóa mềm (deletedAt !== null)
  */
 const getEmployees = async ({ adminTenantId, search }) => {
@@ -199,7 +280,20 @@ const getEmployees = async ({ adminTenantId, search }) => {
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
+      unitId: true,
+      unit: {
+        select: {
+          id: true,
+          name: true,
+          parentId: true,
+        },
+      },
+      ownedUnits: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       role: true,
       tenantId: true,
       createdAt: true,
@@ -346,8 +440,7 @@ const approveJoinRequest = async (tenantId, requestId, { role, department } = {}
       password: data.password, // Đã băm bcrypt sẵn
       name: data.name,
       employeeCode: genCode,
-      department: department || data.department || 'Marketing',
-      role: role === 'ADMIN' ? 'ADMIN' : 'USER',
+      role: (role === 'ROOT' || role === 'ADMIN') ? 'ROOT' : 'MEMBER',
       tenantId: Number(tenantId),
     },
     select: {
@@ -356,7 +449,6 @@ const approveJoinRequest = async (tenantId, requestId, { role, department } = {}
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
       role: true,
       tenantId: true,
       createdAt: true,
@@ -367,7 +459,10 @@ const approveJoinRequest = async (tenantId, requestId, { role, department } = {}
   await redis.del(`join_request:${requestId}`);
   await redis.srem(`tenant:${tenantId}:join_requests`, requestId);
 
-  return newUser;
+  return {
+    ...newUser,
+    department: department || data.department || 'Kỹ thuật',
+  };
 };
 
 /**
@@ -386,6 +481,35 @@ const rejectJoinRequest = async (tenantId, requestId) => {
  * 9. Lấy danh sách nhân viên theo phòng ban & ngân sách phân bổ
  */
 const getDepartmentsOverview = async (tenantId) => {
+  const units = await prisma.unit.findMany({
+    where: {
+      tenantId: Number(tenantId),
+    },
+    include: {
+      members: {
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          uuid: true,
+          email: true,
+          name: true,
+          employeeCode: true,
+          role: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (units.length > 0) {
+    return units.map((u) => ({
+      departmentName: u.name,
+      allowance: 20000000,
+      memberCount: u.members.length,
+      members: u.members,
+    }));
+  }
+
   const users = await prisma.user.findMany({
     where: {
       tenantId: Number(tenantId),
@@ -397,44 +521,18 @@ const getDepartmentsOverview = async (tenantId) => {
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
       role: true,
       createdAt: true,
     },
   });
 
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-
-  const budgets = await prisma.departmentBudget.findMany({
-    where: {
-      tenantId: Number(tenantId),
-      month: currentMonth,
-      year: currentYear,
-    },
-  });
-
-  const budgetMap = {};
-  budgets.forEach((b) => {
-    budgetMap[b.departmentName] = b.allowance;
-  });
-
-  // Nhóm nhân viên theo phòng ban
   const defaultDepartments = ['Marketing', 'Kỹ thuật', 'Kinh doanh', 'Nhân sự'];
-  const departmentSet = new Set([...defaultDepartments, ...users.map((u) => u.department || 'Marketing')]);
-
-  const overview = Array.from(departmentSet).map((dept) => {
-    const deptUsers = users.filter((u) => (u.department || 'Marketing') === dept);
-    return {
-      departmentName: dept,
-      allowance: budgetMap[dept] || 20000000,
-      memberCount: deptUsers.length,
-      members: deptUsers,
-    };
-  });
-
-  return overview;
+  return defaultDepartments.map((dept) => ({
+    departmentName: dept,
+    allowance: 20000000,
+    memberCount: users.length,
+    members: users,
+  }));
 };
 
 /**
@@ -480,10 +578,14 @@ const getAdminContext = async ({ companyUuid, userUuid, requesterUserUuid, reque
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
       role: true,
       tenantId: true,
       createdAt: true,
+      unit: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
@@ -507,8 +609,8 @@ const getAdminContext = async ({ companyUuid, userUuid, requesterUserUuid, reque
     throw error;
   }
 
-  if (adminUser.role !== 'ADMIN') {
-    const error = new Error('Tài khoản này không có quyền Quản trị viên (ADMIN)');
+  if (adminUser.role !== 'ADMIN' && adminUser.role !== 'ROOT') {
+    const error = new Error('Tài khoản này không có quyền Quản trị viên (ADMIN/ROOT)');
     error.statusCode = 403;
     throw error;
   }
@@ -548,12 +650,118 @@ const getAdminContext = async ({ companyUuid, userUuid, requesterUserUuid, reque
       role: adminUser.role,
       uuid: adminUser.uuid,
       employeeCode: adminUser.employeeCode,
-      department: adminUser.department,
+      department: adminUser.unit?.name || 'Ban Quản Trị',
     },
     employees,
     joinRequests,
     departmentsOverview,
   };
+};
+
+/**
+ * 8. Lấy danh sách tất cả các nhóm/đơn vị mà user đang tham gia hoặc sở hữu
+ */
+const getUserUnits = async (userId, tenantId) => {
+  const resolvedUserId = Number(userId);
+  const resolvedTenantId = Number(tenantId);
+
+  const [memberships, ownedUnits, user] = await Promise.all([
+    prisma.unitMember.findMany({
+      where: {
+        userId: resolvedUserId,
+        unit: { tenantId: resolvedTenantId, deletedAt: null },
+      },
+      include: {
+        unit: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            ownerId: true,
+            allowMemberViewBalance: true,
+            allowCreateSubUnit: true,
+            owner: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
+      orderBy: { joinedAt: 'asc' },
+    }),
+    prisma.unit.findMany({
+      where: {
+        ownerId: resolvedUserId,
+        tenantId: resolvedTenantId,
+        deletedAt: null,
+      },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    prisma.user.findFirst({
+      where: { id: resolvedUserId, tenantId: resolvedTenantId, deletedAt: null },
+      include: {
+        unit: {
+          include: {
+            owner: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!user) {
+    const error = new Error('Người dùng không tồn tại');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const unitMap = new Map();
+
+  // Nhập từ user.unit nếu có
+  if (user.unit && !user.unit.deletedAt) {
+    unitMap.set(user.unit.id, {
+      id: user.unit.id,
+      name: user.unit.name,
+      parentId: user.unit.parentId,
+      ownerId: user.unit.ownerId,
+      owner: user.unit.owner,
+      isOwner: user.unit.ownerId === resolvedUserId,
+      allowMemberViewBalance: user.unit.allowMemberViewBalance,
+      allowCreateSubUnit: user.unit.allowCreateSubUnit,
+    });
+  }
+
+  // Nhập từ ownedUnits
+  ownedUnits.forEach((u) => {
+    unitMap.set(u.id, {
+      id: u.id,
+      name: u.name,
+      parentId: u.parentId,
+      ownerId: u.ownerId,
+      owner: u.owner,
+      isOwner: true,
+      allowMemberViewBalance: u.allowMemberViewBalance,
+      allowCreateSubUnit: u.allowCreateSubUnit,
+    });
+  });
+
+  // Nhập từ memberships
+  memberships.forEach((m) => {
+    if (m.unit) {
+      unitMap.set(m.unit.id, {
+        id: m.unit.id,
+        name: m.unit.name,
+        parentId: m.unit.parentId,
+        ownerId: m.unit.ownerId,
+        owner: m.unit.owner,
+        isOwner: m.unit.ownerId === resolvedUserId,
+        allowMemberViewBalance: m.unit.allowMemberViewBalance,
+        allowCreateSubUnit: m.unit.allowCreateSubUnit,
+        joinedAt: m.joinedAt,
+      });
+    }
+  });
+
+  return Array.from(unitMap.values());
 };
 
 module.exports = {
@@ -567,4 +775,5 @@ module.exports = {
   rejectJoinRequest,
   getDepartmentsOverview,
   getAdminContext,
+  getUserUnits,
 };

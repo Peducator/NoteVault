@@ -239,9 +239,31 @@ const getAdminContext = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/users/me/units
+ * GET /api/users/me/groups
+ * Lấy danh sách các nhóm/đơn vị mà user hiện tại tham gia
+ */
+const getMyUnits = async (req, res) => {
+  try {
+    const units = await userService.getUserUnits(req.user.id, req.user.tenantId);
+    return res.status(200).json({
+      success: true,
+      message: 'Lấy danh sách nhóm tham gia thành công',
+      data: units,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
+  getMyUnits,
   createEmployee,
   getEmployees,
   deleteEmployee,

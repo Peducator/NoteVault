@@ -70,19 +70,27 @@ const getBankingAccountsByUser = async (userId) => {
 };
 
 /**
- * Lấy chi tiết 1 tài khoản (bảo mật: chỉ user sở hữu mới được xem)
+ * Lấy chi tiết 1 tài khoản ngân hàng
+ * Quyền riêng tư tuyệt đối: Chỉ chính chủ sở hữu tài khoản mới được xem,
+ * Kể cả ROOT hay ADMIN cũng tuyệt đối không có quyền đọc.
  */
 const getBankingAccountById = async (userId, accountId) => {
-  const account = await prisma.bankingInformation.findFirst({
-    where: {
-      id: Number(accountId),
-      userId: Number(userId),
-    },
+  const accountIdNum = Number(accountId);
+  const userIdNum = Number(userId);
+
+  const account = await prisma.bankingInformation.findUnique({
+    where: { id: accountIdNum },
   });
 
   if (!account) {
-    const error = new Error('Tài khoản ngân hàng không tồn tại hoặc không thuộc quyền sở hữu của bạn');
+    const error = new Error('Tài khoản ngân hàng không tồn tại');
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (account.userId !== userIdNum) {
+    const error = new Error('Forbidden: Thông tin tài khoản ngân hàng là quyền riêng tư cá nhân tuyệt đối. Kể cả ROOT hay Admin cũng không có quyền xem hoặc thao tác trên tài khoản của người khác.');
+    error.statusCode = 403;
     throw error;
   }
 

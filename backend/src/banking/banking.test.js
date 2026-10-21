@@ -182,12 +182,12 @@ describe('User Banking Information API (TDD)', () => {
       expect(res.body.data.accountNumber).toBe('1903688888888');
     });
 
-    it('User B cố tình xem tài khoản của User A bị chặn (404 Not Found)', async () => {
+    it('User B cố tình xem tài khoản của User A bị chặn (403 Forbidden)', async () => {
       const res = await request(app)
         .get(`/api/banking/${createdBankId}`)
         .set('Authorization', `Bearer ${userBToken}`);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
     });
   });
@@ -211,7 +211,7 @@ describe('User Banking Information API (TDD)', () => {
       expect(res.body.data.isDefault).toBe(true);
     });
 
-    it('User B cố tình cập nhật tài khoản của User A bị chặn (404 Not Found)', async () => {
+    it('User B cố tình cập nhật tài khoản của User A bị chặn (403 Forbidden)', async () => {
       const res = await request(app)
         .put(`/api/banking/${createdBankId}`)
         .set('Authorization', `Bearer ${userBToken}`)
@@ -219,7 +219,7 @@ describe('User Banking Information API (TDD)', () => {
           branch: 'Hacker Branch',
         });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
     });
   });
@@ -228,12 +228,12 @@ describe('User Banking Information API (TDD)', () => {
   // 6. XÓA TÀI KHOẢN (DELETE /api/banking/:id)
   // ========================================================
   describe('DELETE /api/banking/:id - Xóa tài khoản banking', () => {
-    it('User B cố tình xóa tài khoản của User A bị chặn (404 Not Found)', async () => {
+    it('User B cố tình xóa tài khoản của User A bị chặn (403 Forbidden)', async () => {
       const res = await request(app)
         .delete(`/api/banking/${createdBankId}`)
         .set('Authorization', `Bearer ${userBToken}`);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
     });
 

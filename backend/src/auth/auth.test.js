@@ -3,6 +3,8 @@ const app = require('../../app');
 const prisma = require('../config/prisma');
 const redis = require('../config/redis');
 
+const { cleanDatabase } = require('../testDb');
+
 describe('Auth Service & API Tests with Prisma Client & Redis Verification', () => {
   beforeAll(async () => {
     if (redis.status !== 'ready' && redis.status !== 'connecting') {
@@ -11,8 +13,8 @@ describe('Auth Service & API Tests with Prisma Client & Redis Verification', () 
   });
 
   beforeEach(async () => {
-    // 1. Dùng Prisma Client xóa sạch bảng users trước mỗi test
-    await prisma.user.deleteMany({});
+    // 1. Dùng cleanDatabase xóa sạch theo đúng thứ tự FK
+    await cleanDatabase();
     // 2. Dọn sạch cache Redis
     await redis.flushdb();
   });

@@ -4,10 +4,12 @@ const userController = require('./userController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
 // ==========================================
-// 1. User thuần: Chỉ xem và sửa thông tin cá nhân
+// 1. User thuần: Chỉ xem và sửa thông tin cá nhân & nhóm tham gia
 // ==========================================
 router.get('/profile', authenticateToken, userController.getProfile);
 router.put('/profile', authenticateToken, userController.updateProfile);
+router.get('/me/units', authenticateToken, userController.getMyUnits);
+router.get('/me/groups', authenticateToken, userController.getMyUnits);
 
 // ==========================================
 // 2. Admin: Quản lý nhân viên (Thêm, Xem, Xóa mềm)

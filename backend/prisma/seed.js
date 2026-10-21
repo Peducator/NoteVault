@@ -1,306 +1,172 @@
+// backend/prisma/seed.js
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
+let bcrypt;
+try { bcrypt = require('bcrypt'); } catch { bcrypt = require('bcryptjs'); }
+
+BigInt.prototype.toJSON = function () { return this.toString(); };
 
 const prisma = new PrismaClient();
+const M = 1_000_000n; // 1 triệu VND
+
+async function calculateSafeBalance(unitId) {
+  const received = await prisma.allocation.aggregate({
+    where: { targetUnitId: unitId },
+    _sum: { amount: true },
+  });
+  const sent = await prisma.allocation.aggregate({
+    where: { sourceUnitId: unitId },
+    _sum: { amount: true },
+  });
+  const approvedExpenses = await prisma.transaction.aggregate({
+    where: { unitId, status: 'APPROVED' },
+    _sum: { amount: true },
+  });
+
+  const totalIn = received._sum.amount || 0n;
+  const totalOut = sent._sum.amount || 0n;
+  const totalSpent = approvedExpenses._sum.amount || 0n;
+
+  return totalIn - totalOut - totalSpent;
+}
 
 async function main() {
-  console.log('=== BẮT ĐẦU SEED DỮ LIỆU THỰC VÀO DATABASE ===');
+  console.log('🌱 Bắt đầu dọn dẹp và nạp dữ liệu mẫu (Seed)...');
 
-  // 1. Tạo hoặc lấy Doanh nghiệp: Tập Đoàn Công Nghệ A
-  let tenantA = await prisma.tenant.findUnique({
-    where: { code: 'cong-ty-a' },
-  });
+  // ============ 0. CLEANUP (Tránh lỗi FK vòng) ============
+  await prisma.transaction.deleteMany();
+  await prisma.allocation.deleteMany();
+  await prisma.bankingInformation.deleteMany();
+  await prisma.user.updateMany({ data: { unitId: null } });
+  await prisma.unit.deleteMany();
+  await prisma.category.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.tenant.deleteMany();
 
-  if (!tenantA) {
-    tenantA = await prisma.tenant.create({
-      data: {
-        companyName: 'Tập Đoàn Công Nghệ A',
-        code: 'cong-ty-a',
-        uuid: crypto.randomUUID(),
-      },
-    });
-    console.log(`[1] Đã tạo Doanh nghiệp: ${tenantA.companyName} (UUID: ${tenantA.uuid})`);
-  } else {
-    if (!tenantA.uuid) {
-      tenantA = await prisma.tenant.update({
-        where: { id: tenantA.id },
-        data: { uuid: crypto.randomUUID() },
-      });
-    }
-    console.log(`[1] Đã tìm thấy Doanh nghiệp: ${tenantA.companyName} (UUID: ${tenantA.uuid})`);
-  }
-
-  // 2. Tạo các Danh mục chi tiêu (Categories) thực tế
-  const categoryNames = [
-    { name: 'Ăn uống', type: 'EXPENSE', icon: 'utensils' },
-    { name: 'Đi lại', type: 'EXPENSE', icon: 'car' },
-    { name: 'Mua sắm', type: 'EXPENSE', icon: 'shopping-bag' },
-    { name: 'Phần mềm', type: 'EXPENSE', icon: 'laptop' },
-  ];
-
-  const categoryMap = {};
-  for (const cat of categoryNames) {
-    let existingCat = await prisma.category.findFirst({
-      where: {
-        name: cat.name,
-        tenantId: tenantA.id,
-      },
-    });
-
-    if (!existingCat) {
-      existingCat = await prisma.category.create({
-        data: {
-          name: cat.name,
-          type: cat.type,
-          icon: cat.icon,
-          tenantId: tenantA.id,
-        },
-      });
-    }
-    categoryMap[cat.name] = existingCat.id;
-  }
-  console.log('[2] Đã tạo danh mục chi tiêu:', Object.keys(categoryMap).join(', '));
-
-  // 3. Tạo tài khoản Quản trị viên (ADMIN)
-  const adminPasswordHash = await bcrypt.hash('Admin@123456', 10);
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@congty-a.vn' },
-    update: {
-      password: adminPasswordHash,
-      tenantId: tenantA.id,
-      role: 'ADMIN',
-      name: 'Trần Quản Trị (Admin A)',
-      employeeCode: 'NV-ADMIN01',
-      department: 'Ban Giám Đốc',
-      deletedAt: null,
-    },
-    create: {
-      uuid: crypto.randomUUID(),
-      email: 'admin@congty-a.vn',
-      password: adminPasswordHash,
-      name: 'Trần Quản Trị (Admin A)',
-      role: 'ADMIN',
-      employeeCode: 'NV-ADMIN01',
-      department: 'Ban Giám Đốc',
-      tenantId: tenantA.id,
-    },
-  });
-  console.log(`[3] Đã tạo Admin: ${adminUser.email} (UUID: ${adminUser.uuid})`);
-
-  // 4. Tạo các tài khoản Nhân viên (USER)
-  const defaultUserPasswordHash = await bcrypt.hash('User@123456', 10);
-  const sampleStaff = [
-    {
-      email: 'hoang.dev@congty-a.vn',
-      name: 'Hoàng Văn Dev',
-      employeeCode: 'NV-100201',
-      department: 'Kỹ thuật',
-      role: 'USER',
-    },
-    {
-      email: 'lan.marketing@congty-a.vn',
-      name: 'Lê Thị Marketing',
-      employeeCode: 'NV-100202',
-      department: 'Marketing',
-      role: 'USER',
-    },
-    {
-      email: 'tuan.sales@congty-a.vn',
-      name: 'Phạm Tuấn Sales',
-      employeeCode: 'NV-100203',
-      department: 'Kinh doanh',
-      role: 'USER',
-    },
-    {
-      email: 'mai.hr@congty-a.vn',
-      name: 'Đỗ Tuyết Mai',
-      employeeCode: 'NV-100204',
-      department: 'Nhân sự',
-      role: 'USER',
-    },
-  ];
-
-  const userMap = { [adminUser.email]: adminUser };
-  for (const u of sampleStaff) {
-    const createdUser = await prisma.user.upsert({
-      where: { email: u.email },
-      update: {
-        password: defaultUserPasswordHash,
-        tenantId: tenantA.id,
-        role: u.role,
-        name: u.name,
-        employeeCode: u.employeeCode,
-        department: u.department,
-        deletedAt: null,
-      },
-      create: {
-        uuid: crypto.randomUUID(),
-        email: u.email,
-        password: defaultUserPasswordHash,
-        name: u.name,
-        role: u.role,
-        employeeCode: u.employeeCode,
-        department: u.department,
-        tenantId: tenantA.id,
-      },
-    });
-    userMap[u.email] = createdUser;
-  }
-  console.log(`[4] Đã tạo ${sampleStaff.length} tài khoản nhân viên chính thức.`);
-
-  // 5. Khởi tạo Giao Dịch Chi Tiêu Thực Tế (Transactions trong DB)
-  // Xóa các transaction mẫu cũ của tenant nếu có để tránh trùng lặp
-  await prisma.transaction.deleteMany({
-    where: { tenantId: tenantA.id },
-  });
-
-  const sampleTransactions = [
-    {
-      userEmail: 'lan.marketing@congty-a.vn',
-      categoryName: 'Ăn uống',
-      amount: 1250000,
-      note: 'Tiếp khách đối tác Agency truyền thông',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Hôm qua
-    },
-    {
-      userEmail: 'lan.marketing@congty-a.vn',
-      categoryName: 'Đi lại',
-      amount: 350000,
-      note: 'Taxi Grab đi sự kiện TechExpo 2026',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    },
-    {
-      userEmail: 'hoang.dev@congty-a.vn',
-      categoryName: 'Phần mềm',
-      amount: 1450000,
-      note: 'Gia hạn bản quyền phần mềm Figma & Adobe Cloud',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    },
-    {
-      userEmail: 'tuan.sales@congty-a.vn',
-      categoryName: 'Đi lại',
-      amount: 3200000,
-      note: 'Vé máy bay Vietnam Airlines công tác Hà Nội',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    },
-    {
-      userEmail: 'mai.hr@congty-a.vn',
-      categoryName: 'Mua sắm',
-      amount: 890000,
-      note: 'Văn phòng phẩm và giấy in hợp đồng quý 4',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
-    },
-    {
-      userEmail: 'admin@congty-a.vn',
-      categoryName: 'Ăn uống',
-      amount: 2400000,
-      note: 'Tiếp đoàn đối tác khách hàng VIP ký kết dự án',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
-    },
-    {
-      userEmail: 'hoang.dev@congty-a.vn',
-      categoryName: 'Mua sắm',
-      amount: 4500000,
-      note: 'Màn hình phụ lập trình viên phòng Kỹ thuật',
-      scanStatus: 'CLEAN',
-      date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-    },
-  ];
-
-  for (const tx of sampleTransactions) {
-    const user = userMap[tx.userEmail];
-    const categoryId = categoryMap[tx.categoryName];
-
-    if (user && categoryId) {
-      await prisma.transaction.create({
-        data: {
-          userId: user.id,
-          tenantId: tenantA.id,
-          categoryId,
-          amount: tx.amount,
-          note: tx.note,
-          scanStatus: tx.scanStatus,
-          transactionDate: tx.date,
-        },
-      });
-    }
-  }
-  console.log(`[5] Đã tạo ${sampleTransactions.length} hóa đơn chi tiêu thực tế trong database.`);
-
-  // 6. Khởi tạo Ngân Sách Các Phòng Ban
+  const passwordHash = await bcrypt.hash('Password123!', 10);
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
 
-  const budgets = [
-    { departmentName: 'Marketing', allowance: 35000000 },
-    { departmentName: 'Kỹ thuật', allowance: 50000000 },
-    { departmentName: 'Kinh doanh', allowance: 40000000 },
-    { departmentName: 'Nhân sự', allowance: 20000000 },
-  ];
-
-  for (const b of budgets) {
-    await prisma.departmentBudget.upsert({
-      where: {
-        departmentName_month_year: {
-          departmentName: b.departmentName,
-          month: currentMonth,
-          year: currentYear,
-        },
-      },
-      update: {
-        allowance: b.allowance,
-        tenantId: tenantA.id,
-      },
-      create: {
-        departmentName: b.departmentName,
-        tenantId: tenantA.id,
-        allowance: b.allowance,
-        month: currentMonth,
-        year: currentYear,
-      },
-    });
-  }
-  console.log('[6] Đã phân bổ ngân sách tháng cho 4 phòng ban.');
-
-  // 7. Thông tin tài khoản ngân hàng nhận tiền hoàn ứng cho Admin
-  await prisma.bankingInformation.upsert({
-    where: { id: 1 },
-    update: {
-      userId: adminUser.id,
-      tenantId: tenantA.id,
-      bankName: 'Techcombank',
-      bankCode: 'TCB',
-      accountNumber: '1903686868888',
-      accountHolder: 'TRAN QUAN TRI',
-      isDefault: true,
-    },
-    create: {
-      userId: adminUser.id,
-      tenantId: tenantA.id,
-      bankName: 'Techcombank',
-      bankCode: 'TCB',
-      accountNumber: '1903686868888',
-      accountHolder: 'TRAN QUAN TRI',
-      isDefault: true,
-    },
+  // ============ 1. CÔNG TY ABC (code "abc") ============
+  const tenantA = await prisma.tenant.create({
+    data: { companyName: 'Công ty ABC', code: 'abc' },
   });
 
-  console.log('=== SEED DỮ LIỆU HOÀN TẤT THÀNH CÔNG 100% ===');
-  console.log(`Đăng nhập Admin: admin@congty-a.vn | Mật khẩu: Admin@123456`);
-  console.log(`Đường dẫn Route Admin: /${tenantA.uuid}/${adminUser.uuid}/admin`);
+  const mkUser = (tenantId, email, name, role) =>
+    prisma.user.create({ data: { tenantId, email, name, password: passwordHash, role } });
+
+  const giamdoc  = await mkUser(tenantA.id, 'giamdoc@abc.test', 'Giám đốc Hoàng', 'ROOT');
+  const truongkd = await mkUser(tenantA.id, 'truongkd@abc.test', 'Trưởng khối KD Khoa', 'ROOT');
+  const an       = await mkUser(tenantA.id, 'an@abc.test', 'An (Sales)', 'MEMBER');
+  const dung     = await mkUser(tenantA.id, 'dung@abc.test', 'Dũng (Sales)', 'MEMBER');
+  const em       = await mkUser(tenantA.id, 'em@abc.test', 'Em (Sales)', 'MEMBER');
+  const binh     = await mkUser(tenantA.id, 'binh@abc.test', 'Bình (Marketing)', 'MEMBER');
+  const phuong   = await mkUser(tenantA.id, 'phuong@abc.test', 'Phương (Marketing)', 'MEMBER');
+
+  const mkUnit = (tenantId, name, parentId, ownerId) =>
+    prisma.unit.create({ data: { tenantId, name, parentId, ownerId } });
+
+  const uGoc   = await mkUnit(tenantA.id, 'ABC (gốc)', null, giamdoc.id);
+  const uKD    = await mkUnit(tenantA.id, 'Khối Kinh doanh', uGoc.id, truongkd.id);
+  const uSales = await mkUnit(tenantA.id, 'Nhóm Sales', uKD.id, an.id);
+  const uMkt   = await mkUnit(tenantA.id, 'Nhóm Marketing', uKD.id, binh.id);
+
+  // Gán unitId: Owner của unit PHẢI thuộc chính unit đó
+  const assign = [
+    [giamdoc, uGoc],
+    [truongkd, uKD],
+    [an, uSales], [dung, uSales], [em, uSales],
+    [binh, uMkt], [phuong, uMkt],
+  ];
+  for (const [u, unit] of assign) {
+    await prisma.user.update({ where: { id: u.id }, data: { unitId: unit.id } });
+  }
+
+  // Cấp tiền (Allocation)
+  const alloc = (tenantId, sourceUnitId, targetUnitId, amount, createdById, note) =>
+    prisma.allocation.create({
+      data: { tenantId, sourceUnitId, targetUnitId, amount, createdById, note },
+    });
+
+  await alloc(tenantA.id, null, uGoc.id, 1000n * M, giamdoc.id, 'Nạp vốn ban đầu');
+  await alloc(tenantA.id, uGoc.id, uKD.id, 400n * M, giamdoc.id, 'Cấp khối KD');
+  await alloc(tenantA.id, uKD.id, uSales.id, 150n * M, truongkd.id, 'Cấp Sales');
+  await alloc(tenantA.id, uKD.id, uMkt.id, 100n * M, truongkd.id, 'Cấp Marketing');
+
+  // Danh mục công ty ABC
+  const catAn    = await prisma.category.create({ data: { tenantId: tenantA.id, name: 'Ăn uống' } });
+  const catDiLai = await prisma.category.create({ data: { tenantId: tenantA.id, name: 'Đi lại' } });
+
+  // Giao dịch ở Sales và Marketing
+  const tx = (tenantId, categoryId, unitId, userId, amount, status, note, extra = {}) =>
+    prisma.transaction.create({
+      data: { tenantId, categoryId, unitId, userId, amount, status, note, ...extra },
+    });
+  const approvedBy = (by) => ({ approvedById: by.id, approvedAt: now });
+
+  // Sales:
+  await tx(tenantA.id, catAn.id, uSales.id, dung.id, 12n * M, 'APPROVED', 'Tiếp khách', approvedBy(an));
+  await tx(tenantA.id, catDiLai.id, uSales.id, dung.id, 8n * M, 'APPROVED', 'Công tác Đà Nẵng', approvedBy(an));
+  await tx(tenantA.id, catAn.id, uSales.id, em.id, 3n * M, 'SUBMITTED', 'Ăn trưa khách hàng');
+  await tx(tenantA.id, catAn.id, uSales.id, em.id, 2n * M, 'REJECTED', 'Chi tiêu công tác',
+    { approvedById: an.id, approvedAt: now, rejectionReason: 'Thiếu hóa đơn VAT hợp lệ' });
+  await tx(tenantA.id, catDiLai.id, uSales.id, an.id, 6n * M, 'APPROVED', 'Taxi họp đối tác', approvedBy(truongkd));
+  await tx(tenantA.id, catAn.id, uSales.id, an.id, 5n * M, 'SUBMITTED', 'Liên hoan nhóm');
+
+  // Marketing:
+  await tx(tenantA.id, catAn.id, uMkt.id, phuong.id, 20n * M, 'APPROVED', 'Chạy quảng cáo', approvedBy(binh));
+  await tx(tenantA.id, catAn.id, uMkt.id, phuong.id, 1n * M, 'SUBMITTED', 'Văn phòng phẩm');
+
+  // ============ 2. CÔNG TY XYZ (code "xyz") ============
+  const tenantB = await prisma.tenant.create({
+    data: { companyName: 'Công ty XYZ', code: 'xyz' },
+  });
+  const rootb = await prisma.user.create({
+    data: { tenantId: tenantB.id, email: 'root@xyz.test', name: 'Chủ XYZ', password: passwordHash, role: 'ROOT' },
+  });
+  const nv = await prisma.user.create({
+    data: { tenantId: tenantB.id, email: 'nv@xyz.test', name: 'Nhân viên XYZ', password: passwordHash, role: 'MEMBER' },
+  });
+  const uB = await mkUnit(tenantB.id, 'XYZ (gốc)', null, rootb.id);
+  await prisma.user.update({ where: { id: rootb.id }, data: { unitId: uB.id } });
+  await prisma.user.update({ where: { id: nv.id }, data: { unitId: uB.id } });
+
+  await alloc(tenantB.id, null, uB.id, 50n * M, rootb.id, 'Nạp vốn ban đầu');
+  const catB = await prisma.category.create({ data: { tenantId: tenantB.id, name: 'Văn phòng' } });
+
+  await tx(tenantB.id, catB.id, uB.id, rootb.id, 5n * M, 'APPROVED', 'Mua máy in', approvedBy(rootb));
+  await tx(tenantB.id, catB.id, uB.id, nv.id, 2n * M, 'SUBMITTED', 'Mua đồ văn phòng');
+
+  // ============ 3. KIỂM TRA SỐ DƯ ĐỐI CHIẾU ============
+  console.log('\n📊 ĐỐI CHIẾU SỐ DƯ KỲ VỌNG SAU SEED:');
+  const expectedList = [
+    { name: 'ABC gốc', unitId: uGoc.id, expected: 600n * M },
+    { name: 'Khối KD', unitId: uKD.id, expected: 150n * M },
+    { name: 'Sales', unitId: uSales.id, expected: 124n * M },
+    { name: 'Marketing', unitId: uMkt.id, expected: 80n * M },
+    { name: 'XYZ gốc', unitId: uB.id, expected: 45n * M },
+  ];
+
+  let hasError = false;
+  for (const item of expectedList) {
+    const actual = await calculateSafeBalance(item.unitId);
+    const isMatch = actual === item.expected;
+    const actualStr = `${actual / M}tr`.padEnd(6);
+    const expectedStr = `${item.expected / M}tr`.padEnd(6);
+    console.log(`- ${item.name.padEnd(12)}: Thực tế = ${actualStr} | Kỳ vọng = ${expectedStr} -> ${isMatch ? '✅ KHỚP' : '❌ LỆCH'}`);
+    if (!isMatch) {
+      hasError = true;
+    }
+  }
+
+  if (hasError) {
+    throw new Error('❌ CÓ SỐ DƯ BỊ LỆCH SO VỚI KỲ VỌNG!');
+  }
+
+  console.log('\n🎉 SEED THÀNH CÔNG VÀ TOÀN BỘ SỐ DƯ KHỚP 100%!');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Lỗi Seed:', e);
     process.exit(1);
   })
   .finally(async () => {

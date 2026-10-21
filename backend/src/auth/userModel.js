@@ -27,18 +27,18 @@ const findUserById = async (id) => {
   });
 };
 
-// Tạo user mới kèm tenantId, name, role, employeeCode, department (nếu có)
-const createUser = async ({ email, password, tenantId, name, role, employeeCode, department }) => {
+// Tạo user mới kèm tenantId, name, role, employeeCode, unitId (nếu có)
+const createUser = async ({ email, password, tenantId, name, role, employeeCode, unitId }) => {
   const genCode = employeeCode || `NV-${Math.floor(100000 + Math.random() * 900000)}`;
   return await prisma.user.create({
     data: {
       email: email.toLowerCase(),
       password,
       name: name || null,
-      role: role || 'USER',
+      role: role || 'MEMBER',
       tenantId: tenantId ? Number(tenantId) : null,
+      unitId: unitId ? Number(unitId) : null,
       employeeCode: genCode,
-      department: department || null,
     },
     select: {
       id: true,
@@ -46,10 +46,11 @@ const createUser = async ({ email, password, tenantId, name, role, employeeCode,
       email: true,
       name: true,
       employeeCode: true,
-      department: true,
       role: true,
       tenantId: true,
       tenant: true,
+      unitId: true,
+      unit: true,
       createdAt: true,
       deletedAt: true,
     },

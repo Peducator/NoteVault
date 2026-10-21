@@ -6,7 +6,16 @@ const ocrService = require('./ocrService');
 const scanInvoice = async (req, res, next) => {
   try {
     const { imageBase64, mimeType } = req.body;
-    
+    const userId = req.user?.id;
+    const tenantId = req.user?.tenantId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Yêu cầu định danh tài khoản người dùng',
+      });
+    }
+
     if (!imageBase64) {
       return res.status(400).json({
         success: false,
@@ -17,6 +26,8 @@ const scanInvoice = async (req, res, next) => {
     const result = await ocrService.scanInvoice({
       imageBase64,
       mimeType: mimeType || 'image/jpeg',
+      userId,
+      tenantId,
     });
 
     return res.status(200).json({

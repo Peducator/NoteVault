@@ -3,16 +3,18 @@ const uploadService = require('./uploadService');
 /**
  * Controller sinh presigned URL để client PUT file ảnh lên S3
  * POST /api/upload/presigned-url
- * Body: { "fileName": "bill.jpg", "contentType": "image/jpeg" }
+ * Body: { "fileName": "bill.jpg", "contentType": "image/jpeg", "unitId": 5 }
  * Bắt buộc lấy userId và tenantId từ token chính chủ (req.user)
+ * Kiểm tra chặt chẽ: userId chỉ được phép tạo link trong những unit mà nó thuộc về hoặc quản lý trên cùng tenantId
  */
 const getPresignedUrl = async (req, res) => {
   try {
-    const { fileName, contentType, fileSize } = req.body;
+    const { fileName, contentType, fileSize, unitId } = req.body;
     
     // BẢO MẬT: Bắt buộc lấy userId và tenantId từ Access Token chính chủ đã giải mã
     const userId = req.user?.id;
     const tenantId = req.user?.tenantId || null;
+    const userRole = req.user?.role || 'MEMBER';
 
     if (!userId) {
       return res.status(401).json({
@@ -21,12 +23,34 @@ const getPresignedUrl = async (req, res) => {
       });
     }
 
+    let targetUnitId = unitId !== undefined && unitId !== null && unitId !== '' ? Number(unitId) : null;
+
+    if (tenantId) {
+      if (targetUnitId) {
+        // Kiểm tra quyền hạn của user trong unit được chỉ định
+        await uploadService.validateUserUnitAccess({
+          userId,
+          tenantId,
+          unitId: targetUnitId,
+          userRole,
+        });
+      } else {
+        // Lấy unitId mặc định của user nếu không chỉ định trong body
+        const userInDb = await uploadService.getUserUnitInfo(userId, tenantId);
+        if (userInDb?.unitId) {
+          targetUnitId = userInDb.unitId;
+        }
+      }
+    }
+
     const result = await uploadService.requestUploadUrl({
       tenantId,
       userId,
+      unitId: targetUnitId,
       fileName,
       contentType,
       fileSize,
+      userRole,
     });
 
     return res.status(200).json({
@@ -45,14 +69,16 @@ const getPresignedUrl = async (req, res) => {
 /**
  * Controller lấy link xem/tải ảnh
  * GET /api/upload/download-url?s3Key=...
+ * Kiểm tra: userId, tenantId và unitId tương ứng phải thuộc về người đó, tránh đọc lén hóa đơn người khác
  */
 const getDownloadUrl = async (req, res) => {
   try {
-    const { s3Key, uploadId, ext } = req.query;
+    const { s3Key, uploadId, ext, transactionId } = req.query;
     
-    // BẢO MẬT: Lấy userId và tenantId từ Access Token chính chủ
+    // BẢO MẬT: Lấy userId, tenantId, role từ Access Token chính chủ
     const authenticatedUserId = req.user?.id;
     const authenticatedTenantId = req.user?.tenantId || null;
+    const authenticatedRole = req.user?.role || 'MEMBER';
 
     if (!authenticatedUserId) {
       return res.status(401).json({
@@ -61,19 +87,22 @@ const getDownloadUrl = async (req, res) => {
       });
     }
 
-    // Kiểm tra quyền xem ảnh:
-    // S3Key phải thuộc về chính chủ user này (hoặc cùng tenant/user)
-    const expectedPrefix1 = authenticatedTenantId 
-      ? `tenants/${authenticatedTenantId}/users/${authenticatedUserId}/`
-      : `users/${authenticatedUserId}/`;
-    const expectedPrefix2 = `users/${authenticatedUserId}/`;
-
-    if (s3Key && !s3Key.startsWith(expectedPrefix1) && !s3Key.startsWith(expectedPrefix2)) {
-      return res.status(403).json({
+    if (!s3Key && !uploadId && !transactionId) {
+      return res.status(400).json({
         success: false,
-        message: 'Bị từ chối: Bạn không có quyền truy cập ảnh của người dùng khác!',
+        message: 'Cần cung cấp s3Key, uploadId hoặc transactionId',
       });
     }
+
+    // Kiểm tra quyền hạn tải/xem hóa đơn: tenantId - unitId - userId
+    await uploadService.validateDownloadPermission({
+      userId: authenticatedUserId,
+      tenantId: authenticatedTenantId,
+      userRole: authenticatedRole,
+      s3Key,
+      uploadId,
+      transactionId,
+    });
 
     const result = await uploadService.requestDownloadUrl({
       tenantId: authenticatedTenantId,
@@ -99,12 +128,14 @@ const getDownloadUrl = async (req, res) => {
 /**
  * Controller upload file trực tiếp bằng backend (dùng PUT presigned URL)
  * POST /api/upload/direct
+ * Yêu cầu: Kiểm tra đủ userId, tenantId và chọn đúng unitId để gửi lên S3
  */
 const uploadDirectFromBackend = async (req, res) => {
   try {
-    const { fileName, contentType, base64Data } = req.body;
+    const { fileName, contentType, base64Data, unitId } = req.body;
     const userId = req.user?.id;
     const tenantId = req.user?.tenantId || null;
+    const userRole = req.user?.role || 'MEMBER';
 
     if (!userId) {
       return res.status(401).json({
@@ -117,12 +148,32 @@ const uploadDirectFromBackend = async (req, res) => {
       return res.status(400).json({ success: false, message: 'base64Data is required' });
     }
 
-    // 1. Tạo presigned URL cho chính chủ userId & tenantId
+    let targetUnitId = unitId !== undefined && unitId !== null && unitId !== '' ? Number(unitId) : null;
+
+    if (tenantId) {
+      if (targetUnitId) {
+        await uploadService.validateUserUnitAccess({
+          userId,
+          tenantId,
+          unitId: targetUnitId,
+          userRole,
+        });
+      } else {
+        const userInDb = await uploadService.getUserUnitInfo(userId, tenantId);
+        if (userInDb?.unitId) {
+          targetUnitId = userInDb.unitId;
+        }
+      }
+    }
+
+    // 1. Tạo presigned URL cho chính chủ userId, tenantId và unitId
     const { uploadUrl, s3Key } = await uploadService.requestUploadUrl({
       tenantId,
       userId,
+      unitId: targetUnitId,
       fileName: fileName || 'upload.jpg',
       contentType: contentType || 'image/jpeg',
+      userRole,
     });
 
     // 2. PUT ảnh lên S3
@@ -132,7 +183,7 @@ const uploadDirectFromBackend = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Image uploaded to S3 successfully via Presigned PUT URL',
-      data: { tenantId, userId, s3Key },
+      data: { tenantId, userId, unitId: targetUnitId, s3Key },
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
