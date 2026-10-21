@@ -1,4 +1,4 @@
-name: NoteVault CI/CD Pipeline
+name: NoteVault CI Pipeline
 
 on:
   push:
@@ -175,73 +175,3 @@ jobs:
           fi
 
           echo "✅ CI-OK PASSED: Tất cả các bước (gitleaks, semgrep, eslint, npm test) đều đạt 100%!"
-
-  # =========================================================================
-  # 6. CD: Tự động Deploy lên VPS khi toàn bộ CI-OK đã PASS
-  # =========================================================================
-  deploy:
-    name: CD (Auto Deploy to VPS)
-    needs: [ci-ok]
-    runs-on: ubuntu-latest
-    # Chỉ deploy khi CI-OK thành công và thuộc nhánh staging/master/main hoặc chạy thủ công
-    if: needs.ci-ok.result == 'success' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Check VPS Configuration Secrets
-        id: check_vps
-        run: |
-          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
-            echo "has_vps=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Chưa cấu hình VPS_HOST hoặc VPS_SSH_KEY trong GitHub Secrets. Bỏ qua bước tự động SSH Deploy."
-          else
-            echo "has_vps=true" >> $GITHUB_OUTPUT
-            echo "✅ Đã tìm thấy cấu hình VPS. Tiến hành tự động deploy..."
-          fi
-
-      - name: Deploy to VPS via SSH
-        if: steps.check_vps.outputs.has_vps == 'true'
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME || 'ubuntu' }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script: |
-            set -e
-            DEPLOY_DIR="${{ secrets.VPS_DEPLOY_DIR || '~/lesson_1' }}"
-
-            echo "🚀 [VPS CD] Bắt đầu triển khai tại: $DEPLOY_DIR"
-            if [ ! -d "$DEPLOY_DIR" ]; then
-              echo "Thư mục chưa tồn tại, tiến hành clone git repository..."
-              git clone https://github.com/${{ github.repository }}.git "$DEPLOY_DIR"
-            fi
-
-            cd "$DEPLOY_DIR"
-            git fetch --all
-            git checkout ${{ github.ref_name }}
-            git pull origin ${{ github.ref_name }}
-
-            echo "⚙️ [VPS CD] Cập nhật tệp cấu hình môi trường..."
-            cat << 'EOF' > .env
-            STAGING_PORT=${{ secrets.STAGING_PORT || '80' }}
-            POSTGRES_USER=${{ secrets.POSTGRES_USER || 'frobez_user' }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD || 'frobez_password' }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB || 'notevault_staging' }}
-            JWT_SECRET=${{ secrets.JWT_SECRET || 'vps_staging_jwt_secret_key_2026' }}
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET || 'vps_staging_jwt_refresh_secret_key_2026' }}
-            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-1' }}
-            BUCKET_NAME=${{ secrets.BUCKET_NAME || 'notevault-bucket-file-dev' }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            EOF
-
-            echo "🐳 [VPS CD] Khởi động cụm Docker Staging..."
-            docker compose -f docker-compose.staging.yml up -d --build --remove-orphans
-
-            echo "🧹 [VPS CD] Dọn dẹp images cũ..."
-            docker image prune -f
-
-            echo "🎉 [VPS CD] Chúc mừng! Môi trường Staging trên VPS đã được cập nhật thành công!"
