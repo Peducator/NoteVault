@@ -1,0 +1,7 @@
+node_modules
+.docker-data
+*.log
+.git
+.env
+tests
+coverage
