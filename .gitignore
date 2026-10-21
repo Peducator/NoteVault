@@ -76,3 +76,21 @@ frontend/app/doc/
 /frontend/app/doc/
 docs/
 doc/
+API_DOCUMENTATION.md
+*.docx
+*.docx.bak
+*.bak
+
+# ==========================================
+# 10. Terraform & SSH Keys
+# ==========================================
+terraform/
+*.tf
+*.hcl
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.pem
+*.key
