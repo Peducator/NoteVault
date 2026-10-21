@@ -1,0 +1,21 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist mock test keys, workflow definitions and documentation"
+paths = [
+  '''^\.github/workflows/''',
+  '''^\.env\.example$''',
+  '''\.test\.(js|ts|jsx|tsx)$''',
+  '''package-lock\.json$''',
+  '''^docs/''',
+  '''^scripts/''',
+  '''\.docx$''',
+]
+stopwords = [
+  "ci_test_jwt_secret_key_2026",
+  "ci_test_jwt_refresh_secret_key_2026",
+  "vps_staging_jwt_secret_key_2026",
+  "vps_staging_jwt_refresh_secret_key_2026",
+]
+

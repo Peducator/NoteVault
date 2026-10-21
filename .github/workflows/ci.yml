@@ -1,0 +1,110 @@
+name: NoteVault CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # 1. GITLEAKS: Quét phát hiện lộ lọt Secrets, Passwords & API Keys
+  # =========================================================================
+  gitleaks:
+    name: Gitleaks (Secret Detection)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
+
+  # =========================================================================
+  # 2. SEMGREP: Quét tĩnh mã nguồn (SAST) phát hiện lỗ hổng bảo mật
+  # =========================================================================
+  semgrep:
+    name: Semgrep (SAST Security Scan)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep Scan
+        run: |
+          semgrep scan --config auto --error --exclude="node_modules" --exclude=".next" --exclude=".docker-data"
+
+  # =========================================================================
+  # 3. ESLINT: Kiểm tra chuẩn code & cú pháp (Frontend & Backend)
+  # =========================================================================
+  eslint:
+    name: ESLint (Code Quality & Standards)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Frontend ESLint
+        run: |
+          cd frontend
+          npm run lint
+
+  # =========================================================================
+  # 4. CI-OK: Chốt an toàn kiểm tra tổng hợp tất cả các job đã PASS
+  # =========================================================================
+  ci-ok:
+    name: ci-ok (All Checks Passed)
+    runs-on: ubuntu-latest
+    needs: [gitleaks, semgrep, eslint]
+    if: always()
+    steps:
+      - name: Evaluate Upstream Job Results
+        run: |
+          echo "=============================================="
+          echo "      NOTEVAULT CI PIPELINE VERIFICATION      "
+          echo "=============================================="
+          echo "Gitleaks (Secret Scan) : ${{ needs.gitleaks.result }}"
+          echo "Semgrep (SAST Scan)    : ${{ needs.semgrep.result }}"
+          echo "ESLint (Code Quality)  : ${{ needs.eslint.result }}"
+          echo "=============================================="
+
+          failed=0
+          for job in "${{ needs.gitleaks.result }}" "${{ needs.semgrep.result }}" "${{ needs.eslint.result }}"; do
+            if [ "$job" != "success" ]; then
+              failed=1
+            fi
+          done
+
+          if [ $failed -ne 0 ]; then
+            echo "❌ CI FAILED: Có ít nhất một bước kiểm tra không vượt qua."
+            exit 1
+          fi
+
+          echo "✅ CI-OK PASSED: Tất cả các bước (gitleaks, semgrep, eslint) đều đạt 100%!"
+

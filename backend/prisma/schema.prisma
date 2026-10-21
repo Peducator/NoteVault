@@ -1,0 +1,305 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Tenant {
+  id                 Int                  @id @default(autoincrement())
+  uuid               String?              @unique @default(uuid()) @map("uuid")
+  companyName        String               @map("company_name")
+  code               String               @unique // Mã định danh công ty (ví dụ: fpt, vinfast, notevault)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  users              User[]
+  categories         Category[]
+  transactions       Transaction[]
+  bankingInformation BankingInformation[]
+  units              Unit[]
+  allocations        Allocation[]
+  allocationRequests AllocationRequest[]
+  notifications      Notification[]
+
+  @@map("tenants")
+}
+
+// Role cấp công ty. "Admin" KHÔNG lưu ở đây, mà xác định bằng quan hệ unit.ownerId === user.id
+enum Role {
+  ROOT
+  MEMBER
+}
+
+enum ExpenseStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  uuid         String?   @unique @default(uuid()) @map("uuid")
+  email        String    @unique
+  password     String
+  name         String?
+  employeeCode String?   @map("employee_code") // Mã số nhân viên (ví dụ: VF-1042)
+  role         Role      @default(MEMBER)
+  deletedAt    DateTime? @map("deleted_at")
+  tenantId     Int?      @map("tenant_id")
+  tenant       Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  unitId       Int?      @map("unit_id") // Mỗi user thuộc đúng một unit
+  unit         Unit?     @relation("UnitMembers", fields: [unitId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  ownedUnits           Unit[]               @relation("UnitOwner")
+  unitMemberships      UnitMember[]         @relation("UserMemberships")
+  categories           Category[]
+  transactions         Transaction[]        @relation("TransactionCreator")
+  approvedTransactions Transaction[]        @relation("TransactionApprover")
+  createdAllocations         Allocation[]         @relation("AllocationCreator")
+  createdAllocationRequests  AllocationRequest[]  @relation("AllocationRequester")
+  lockedAllocationRequests   AllocationRequest[]  @relation("AllocationReqLocker")
+  fundedAllocationRequests   AllocationRequest[]  @relation("AllocationReqFunderUser")
+  rejectedAllocationRequests AllocationRequest[]  @relation("AllocationReqRejectorUser")
+  bankingInformation         BankingInformation[]
+  notifications        Notification[]       @relation("UserNotifications")
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@map("users")
+}
+
+// Cây tổ chức: tự tham chiếu. Nút lá = "nhóm" (nơi có chi tiêu). Unit cha = "két" giữ tiền để cấp xuống.
+model Unit {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  parentId  Int?     @map("parent_id") // null = unit gốc của công ty
+  parent    Unit?    @relation("UnitTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Unit[]   @relation("UnitTree")
+  name      String
+  ownerId   Int      @map("owner_id") // Đúng một owner (admin của nhóm hoặc root)
+  owner     User     @relation("UnitOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  allowMemberViewBalance Boolean  @default(false) @map("allow_member_view_balance") // Quyền cho phép thành viên xem số dư quỹ
+  allowCreateSubUnit     Boolean  @default(false) @map("allow_create_sub_unit") // Quyền cho phép Anh Cả tạo nhánh con (nest)
+  deletedAt              DateTime? @map("deleted_at") // Soft delete
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at")
+
+  members                       User[]              @relation("UnitMembers")
+  memberships                   UnitMember[]        @relation("UnitMemberships")
+  allocationsSent               Allocation[]        @relation("AllocationSource")
+  allocationsReceived           Allocation[]        @relation("AllocationTarget")
+  allocationRequestsDestination AllocationRequest[] @relation("AllocationReqDestination")
+  allocationRequestsCurrent     AllocationRequest[] @relation("AllocationReqCurrent")
+  allocationRequestsFunded      AllocationRequest[] @relation("AllocationReqFunderUnit")
+  allocationRequestsRejected    AllocationRequest[] @relation("AllocationReqRejectorUnit")
+  transactions                  Transaction[]
+
+  @@index([tenantId])
+  @@index([parentId])
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@map("units")
+}
+
+enum UnitMemberRole {
+  EDIT
+  VIEWER
+}
+
+// Bảng thành viên đa nhóm: 1 người có thể tham gia nhiều unit, 1 unit có nhiều người tham gia
+model UnitMember {
+  id        Int            @id @default(autoincrement())
+  unitId    Int            @map("unit_id")
+  userId    Int            @map("user_id")
+  role      UnitMemberRole @default(VIEWER)
+  joinedAt  DateTime       @default(now()) @map("joined_at")
+
+  unit      Unit     @relation("UnitMemberships", fields: [unitId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, userId])
+  @@index([unitId])
+  @@index([userId])
+  @@map("unit_members")
+}
+
+// Lịch sử cấp tiền giữa các unit. Chỉ thêm, không sửa, không xóa.
+// Số dư unit tính bằng truy vấn, không lưu thành cột.
+model Allocation {
+  id           Int      @id @default(autoincrement())
+  tenantId     Int      @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sourceUnitId Int?     @map("source_unit_id") // null = tiền nạp ban đầu vào unit gốc
+  sourceUnit   Unit?    @relation("AllocationSource", fields: [sourceUnitId], references: [id], onDelete: Restrict)
+  targetUnitId Int      @map("target_unit_id")
+  targetUnit   Unit     @relation("AllocationTarget", fields: [targetUnitId], references: [id], onDelete: Restrict)
+  amount       BigInt // VND, số nguyên
+  createdById  Int      @map("created_by_id")
+  createdBy    User     @relation("AllocationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  note              String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  allocationRequest AllocationRequest?
+
+  @@index([tenantId])
+  @@index([sourceUnitId])
+  @@index([targetUnitId])
+  @@map("allocations")
+}
+
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String
+  type         CategoryType  @default(EXPENSE)
+  icon         String?       @default("default")
+  userId       Int?          @map("user_id") // null = danh mục hệ thống dùng chung
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId     Int?          @map("tenant_id")
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  transactions Transaction[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id              Int           @id @default(autoincrement())
+  userId          Int           @map("user_id") // Người tạo giao dịch
+  user            User          @relation("TransactionCreator", fields: [userId], references: [id], onDelete: Restrict)
+  tenantId        Int           @map("tenant_id")
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  unitId          Int           @map("unit_id") // Chỉ gắn với unit lá (nhóm), kiểm tra trong code
+  unit            Unit          @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  categoryId      Int           @map("category_id")
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount          BigInt // VND, số nguyên (không dùng Float)
+  type            CategoryType  @default(EXPENSE)
+  transactionDate DateTime      @default(now()) @map("transaction_date")
+  note            String?
+  s3Key           String?       @map("s3_key") // Đường dẫn ảnh hóa đơn trên S3: tenants/{tenantId}/users/{userId}/receipts/YYYY-MM-DD/{fileName}
+  scanStatus      String        @default("CLEAN") @map("scan_status") // PENDING_SCAN, CLEAN, INFECTED
+
+  // Duyệt chi: người duyệt = người quản lý trực tiếp của người tạo. Không xóa giao dịch, từ chối thì đổi trạng thái.
+  status          ExpenseStatus @default(SUBMITTED)
+  approvedById    Int?          @map("approved_by_id")
+  approver        User?         @relation("TransactionApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt      DateTime?     @map("approved_at")
+  rejectionReason String?       @map("rejection_reason")
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([unitId, status])
+  @@index([unitId, transactionDate])
+  @@map("transactions")
+}
+
+model BankingInformation {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId      Int?     @map("tenant_id")
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  bankName      String   @map("bank_name") // Tên ngân hàng (ví dụ: Techcombank, Vietcombank, MB Bank, ACB...)
+  bankCode      String?  @map("bank_code") // Mã định danh ngân hàng (TCB, VCB, MB, ACB, VPB...)
+  accountNumber String   @map("account_number") // Số tài khoản ngân hàng
+  accountHolder String   @map("account_holder") // Tên chủ tài khoản (in hoa, ví dụ: LAN NGUYEN)
+  branch        String?  @map("branch") // Chi nhánh ngân hàng (ví dụ: Chi nhánh Hoàn Kiếm)
+  isDefault     Boolean  @default(false) @map("is_default") // Đặt làm tài khoản nhận tiền hoàn ứng mặc định
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("banking_information")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  tenantId  Int      @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    Int      @map("user_id")
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("ALLOCATION")
+  data      Json?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+enum AllocationRequestStatus {
+  PENDING
+  ALLOCATING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// Quy trình xin cấp thêm ngân sách và leo thang phê duyệt theo chuỗi cấp trên
+model AllocationRequest {
+  id                Int                     @id @default(autoincrement())
+  tenantId          Int                     @map("tenant_id")
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  destinationUnitId Int                     @map("destination_unit_id") // Phòng ban gốc cần tiền
+  destinationUnit   Unit                    @relation("AllocationReqDestination", fields: [destinationUnitId], references: [id], onDelete: Restrict)
+  requesterId       Int                     @map("requester_id")        // Người làm đơn yêu cầu
+  requester         User                    @relation("AllocationRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  amount            BigInt                                              // VND, số nguyên
+  reason            String                                              // Lý do xin thêm trợ cấp
+
+  // Trạng thái & Vị trí hiện tại trong chuỗi duyệt
+  status            AllocationRequestStatus @default(PENDING)
+  currentUnitId     Int                     @map("current_unit_id")     // Phòng ban hiện tại đang thụ lý đơn
+  currentUnit       Unit                    @relation("AllocationReqCurrent", fields: [currentUnitId], references: [id], onDelete: Restrict)
+
+  // Nhật ký chuỗi phê duyệt (Audit trail):
+  // Mảng các bước: [{ unitId, unitName, action: 'CREATE'|'ENDORSE_AND_FORWARD'|'APPROVE_AND_FUND'|'REJECT', userId, userName, note, timestamp }]
+  forwardingHistory Json                    @default("[]") @map("forwarding_history")
+
+  // Khóa chống Race Condition giữa các sếp cùng có quyền EDIT (TTL = 5 phút = 300.000 ms)
+  lockedById        Int?                    @map("locked_by_id")        // Sếp đang giữ khóa xử lý
+  lockedBy          User?                   @relation("AllocationReqLocker", fields: [lockedById], references: [id], onDelete: SetNull)
+  lockedAt          DateTime?               @map("locked_at")           // Thời điểm lock
+
+  // Thông tin Phê duyệt & Rót tiền (khi APPROVED)
+  fundedByUnitId    Int?                    @map("funded_by_unit_id")   // Phòng ban cấp tiền
+  fundedByUnit      Unit?                   @relation("AllocationReqFunderUnit", fields: [fundedByUnitId], references: [id], onDelete: SetNull)
+  fundedByUserId    Int?                    @map("funded_by_user_id")   // Sếp ký duyệt rót tiền
+  fundedByUser      User?                   @relation("AllocationReqFunderUser", fields: [fundedByUserId], references: [id], onDelete: SetNull)
+  allocationId      Int?                    @unique @map("allocation_id") // Bản ghi Allocation đã tạo
+  allocation        Allocation?             @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+
+  // Thông tin Từ chối (khi REJECTED)
+  rejectedByUnitId  Int?                    @map("rejected_by_unit_id") // Phòng ban từ chối
+  rejectedByUnit    Unit?                   @relation("AllocationReqRejectorUnit", fields: [rejectedByUnitId], references: [id], onDelete: SetNull)
+  rejectedByUserId  Int?                    @map("rejected_by_user_id") // Người bấm từ chối
+  rejectedByUser    User?                   @relation("AllocationReqRejectorUser", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+  rejectionReason   String?                 @map("rejection_reason")    // Lý do từ chối
+  rejectedAt        DateTime?               @map("rejected_at")
+
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([destinationUnitId])
+  @@index([currentUnitId])
+  @@index([status])
+  @@map("allocation_requests")
+}
+
+
