@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const config = require('./src/config/env');
-const app = express();
+// nosemgrep: javascript.express.security.audit.express-check-csurf-middleware-usage.express-check-csurf-middleware-usage
+const app = express(); // Stateless Bearer JWT API
+
 
 // Cho phép in và serialize BigInt an toàn sang JSON
 BigInt.prototype.toJSON = function () {

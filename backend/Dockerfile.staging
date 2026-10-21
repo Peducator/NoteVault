@@ -18,4 +18,7 @@ ENV PORT=5000
 
 EXPOSE 5000
 
+RUN chown -R node:node /app
+USER node
+
 CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node app.js"]

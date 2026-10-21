@@ -141,7 +141,7 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
         }
       }
     } catch (fetchErr) {
-      console.warn(`[OCR Service] Lỗi khi gọi "${model}":`, fetchErr.message);
+      console.warn('[OCR Service] Lỗi khi gọi model:', model, fetchErr.message);
       lastErrorText = fetchErr.message;
       continue;
     }

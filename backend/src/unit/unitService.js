@@ -465,7 +465,7 @@ const updateUnit = async (unitId, tenantId, { name, ownerId, allowMemberViewBala
   });
 
   // Audit Logging
-  console.log(`[AUDIT LOG] User ${user?.id || 'SYSTEM'} (${user?.role}) updated Unit ${resolvedId}:`, JSON.stringify(updateData));
+  console.log('[AUDIT LOG] Unit updated:', { userId: user?.id || 'SYSTEM', role: user?.role, unitId: resolvedId, updateData });
 
   const balance = await calculateSafeBalance(resolvedId, resolvedTenantId);
   return {
