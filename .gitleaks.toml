@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Bỏ qua các mock test, tệp cấu hình mẫu và tài liệu"
+paths = [
+  '''^\.env\.example$''',
+  '''\.test\.(js|ts|jsx|tsx)$''',
+  '''package-lock\.json$''',
+  '''^docs/''',
+  '''^scripts/''',
+  '''\.docx$''',
+]
