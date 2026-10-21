@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Menu, RefreshCw } from 'lucide-react';
+import { Plus, Menu, RefreshCw, LogOut } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
@@ -9,6 +9,7 @@ interface HeaderProps {
   isSyncing?: boolean;
   onNewExpenseClick?: () => void;
   onToggleMenu?: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSyncing = false,
   onNewExpenseClick,
   onToggleMenu,
+  onLogout,
 }) => {
   return (
     <header className="h-16 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 flex-shrink-0 transition-colors">
@@ -60,6 +62,17 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>Nộp hóa đơn</span>
+          </button>
+        )}
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+            className="p-2 text-zinc-500 hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         )}
       </div>

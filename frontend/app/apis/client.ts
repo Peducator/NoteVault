@@ -6,11 +6,10 @@
  */
 
 export const getApiUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:5000`;
-  }
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 };
+
+
 
 export interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
@@ -124,8 +123,7 @@ export async function apiFetch<T = any>(
   // Xử lý khi gặp mã 401 (Access Token hết hạn hoặc không hợp lệ)
   const isAuthEndpoint = endpoint.includes('/api/auth/login') || 
                          endpoint.includes('/api/auth/refresh') || 
-                         endpoint.includes('/api/auth/signup') ||
-                         endpoint.includes('/api/auth/join-team');
+                         endpoint.includes('/api/auth/signup');
 
   if (response.status === 401 && !isRetry && !isAuthEndpoint) {
     // Thử làm mới Access Token bằng Refresh Token

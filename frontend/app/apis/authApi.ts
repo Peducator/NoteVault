@@ -16,20 +16,6 @@ export interface SignupParams {
   phone?: string;
 }
 
-export interface JoinTeamParams {
-  email: string;
-  password: string;
-  name: string;
-  tenantId: number;
-  department?: string;
-}
-
-export interface CompanyItem {
-  id: number;
-  companyName: string;
-  taxCode?: string | null;
-  industry?: string | null;
-}
 
 export const authApi = {
   /**
@@ -56,28 +42,6 @@ export const authApi = {
     return res;
   },
 
-  /**
-   * Ứng viên gửi đơn xin gia nhập công ty (lưu tạm Redis 3 ngày)
-   */
-  async joinTeam(data: JoinTeamParams) {
-    const res = await apiFetch('/api/auth/join-team', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      skipAuth: true,
-    });
-    return res;
-  },
-
-  /**
-   * Lấy danh sách doanh nghiệp có sẵn từ Database
-   */
-  async getCompanies(): Promise<{ success: boolean; data: CompanyItem[] }> {
-    const res = await apiFetch('/api/auth/companies', {
-      method: 'GET',
-      skipAuth: true,
-    });
-    return res;
-  },
 
   /**
    * Làm mới Access Token bằng Refresh Token

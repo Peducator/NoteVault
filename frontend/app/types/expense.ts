@@ -1,11 +1,75 @@
 export type ScanStatus = 'PENDING_SCAN' | 'CLEAN' | 'INFECTED';
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUBMITTED' | 'PAID';
+export type UserRole = 'ROOT' | 'MEMBER' | 'ADMIN';
+export type UnitMemberRole = 'EDIT' | 'VIEWER';
+
+export interface UnitMember {
+  id: number;
+  uuid?: string;
+  name: string | null;
+  email: string;
+  role: UserRole;
+  unitMemberRole?: UnitMemberRole;
+  unitId?: number | null;
+  isOwner?: boolean;
+}
+
+export interface Unit {
+  id: number;
+  name: string;
+  parentId: number | null;
+  ownerId: number | null;
+  tenantId: number;
+  allowCreateSubUnit?: boolean;
+  allowMemberViewBalance?: boolean;
+  createdAt?: string;
+  parent?: {
+    id: number;
+    name: string;
+  } | null;
+  children?: Unit[];
+  owner?: {
+    id: number;
+    name: string | null;
+    email: string;
+    role: UserRole;
+  } | null;
+  members?: UnitMember[];
+  isLeaf?: boolean;
+  totalIn?: string | number;
+  totalOut?: string | number;
+  totalSpent?: string | number;
+  safeBalance?: string | number;
+}
+
+export interface Allocation {
+  id: number;
+  amount: string | number;
+  sourceUnitId: number | null;
+  targetUnitId: number;
+  tenantId: number;
+  note?: string | null;
+  createdAt: string;
+  sourceUnit?: {
+    id: number;
+    name: string;
+  } | null;
+  targetUnit?: {
+    id: number;
+    name: string;
+  };
+  createdBy?: {
+    id: number;
+    name: string | null;
+    email: string;
+  };
+}
 
 export interface Expense {
   id: string;
   user: string;
   purpose: string;
-  category: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm';
+  category: string;
   date: string;
   amount: number;
   scanStatus: ScanStatus;
@@ -13,6 +77,10 @@ export interface Expense {
   taxCode?: string;
   vendorName?: string;
   receiptUrl?: string;
+  unitId?: number;
+  unitName?: string;
+  rejectionReason?: string | null;
+  userId?: number;
 }
 
 export interface DepartmentBudget {
@@ -27,8 +95,9 @@ export interface JoinRequest {
   requestId: string;
   email: string;
   name: string;
-  employeeCode: string;
-  department: string;
+  employeeCode?: string;
+  department?: string;
+  unitId?: number;
   tenantId: number;
   createdAt: string;
 }
@@ -40,9 +109,16 @@ export interface EmployeeUser {
   name: string | null;
   employeeCode?: string | null;
   department?: string | null;
-  role: 'ADMIN' | 'USER';
+  unitId?: number | null;
+  unit?: {
+    id: number;
+    name: string;
+  } | null;
+  role: UserRole | string;
+  unitMemberRole?: UnitMemberRole;
   tenantId: number | null;
   createdAt: string;
+  isOwner?: boolean;
 }
 
 export interface DepartmentOverviewItem {
@@ -67,6 +143,7 @@ export interface AdminInfo {
   uuid: string;
   employeeCode?: string | null;
   department?: string | null;
+  unitId?: number | null;
 }
 
 export interface AdminContextData {
@@ -75,4 +152,5 @@ export interface AdminContextData {
   employees: EmployeeUser[];
   joinRequests: JoinRequest[];
   departmentsOverview: DepartmentOverviewItem[];
+  units?: Unit[];
 }

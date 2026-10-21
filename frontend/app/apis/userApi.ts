@@ -65,6 +65,13 @@ export const userApi = {
   },
 
   /**
+   * Alias cho getUsers()
+   */
+  async getEmployees(): Promise<{ success: boolean; data: EmployeeUser[] }> {
+    return userApi.getUsers();
+  },
+
+  /**
    * Admin tạo người dùng mới trực tiếp
    */
   async createUser(data: CreateUserParams): Promise<{ success: boolean; data: EmployeeUser }> {
@@ -95,10 +102,25 @@ export const userApi = {
   /**
    * Phê duyệt đơn gia nhập: gán Role, gán Phòng ban và đẩy vào DB (Admin only)
    */
-  async approveJoinRequest(requestId: string, data: ApproveJoinRequestParams) {
+  async approveJoinRequest(
+    requestId: string,
+    roleOrData: 'USER' | 'ADMIN' | 'ROOT' | 'MEMBER' | ApproveJoinRequestParams,
+    departmentOrUnitId?: string | number
+  ) {
+    let payload: any = {};
+    if (typeof roleOrData === 'object') {
+      payload = roleOrData;
+    } else {
+      payload = {
+        role: roleOrData === 'ROOT' ? 'ADMIN' : 'USER',
+        department: typeof departmentOrUnitId === 'string' ? departmentOrUnitId : 'Nhân sự',
+        unitId: typeof departmentOrUnitId === 'number' ? departmentOrUnitId : undefined,
+      };
+    }
+
     return apiFetch(`/api/users/join-requests/${requestId}/approve`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   },
 

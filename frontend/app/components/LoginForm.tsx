@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Building2, ChevronDown, Lock, AlertCircle, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Lock, AlertCircle, RefreshCw } from 'lucide-react';
 import { authApi } from '../apis/authApi';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -16,32 +16,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onGoToRegister,
   onSubmitSuccess,
 }) => {
-  const [availableCompanies, setAvailableCompanies] = useState<Array<{ id: number; companyName: string; code?: string }>>([]);
-  const [selectedTenant, setSelectedTenant] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Tự động load danh sách công ty từ database & điền thông tin nếu vừa đăng ký
+  // Điền email nếu vừa đăng ký
   useEffect(() => {
-    const loadCompanies = async () => {
-      try {
-        const res = await authApi.getCompanies();
-        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-          setAvailableCompanies(res.data);
-          if (typeof window !== 'undefined') {
-            const savedCompany = localStorage.getItem('nv_registered_company');
-            setSelectedTenant(savedCompany || res.data[0].companyName);
-          }
-        }
-      } catch (err) {
-        console.error('Không thể nạp danh sách công ty:', err);
-      }
-    };
-
-    loadCompanies();
-
     if (typeof window !== 'undefined') {
       const savedEmail = localStorage.getItem('nv_registered_email');
       if (savedEmail) {
@@ -119,32 +100,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Chọn Công ty (Tenant Selector) */}
-            <div>
-              <label className="nv-label flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                Doanh nghiệp / Không gian làm việc *
-              </label>
-              <div className="relative">
-                <select 
-                  value={selectedTenant}
-                  onChange={(e) => setSelectedTenant(e.target.value)}
-                  className="nv-input appearance-none pr-10 bg-white dark:bg-zinc-800 font-medium text-slate-900 dark:text-zinc-100 cursor-pointer"
-                >
-                  {availableCompanies.length > 0 ? (
-                    availableCompanies.map((c) => (
-                      <option key={c.id} value={c.companyName}>
-                        {c.companyName} (Doanh nghiệp)
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">{selectedTenant || 'Đang tải danh sách doanh nghiệp...'}</option>
-                  )}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
             {/* Email */}
             <div>
               <label className="nv-label">Email công việc *</label>

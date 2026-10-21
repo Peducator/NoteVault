@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "NoteVault - Quản lý Chi tiêu Doanh nghiệp",
   description: "Hệ thống quản lý chi tiêu và đối soát hóa đơn tự động",

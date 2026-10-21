@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   UploadCloud, 
@@ -14,14 +14,18 @@ import {
   AlertCircle 
 } from 'lucide-react';
 import { expenseApi } from '../apis/expenseApi';
+import { unitApi } from '../apis/unitApi';
 
 interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  units?: { id: number; name: string; isLeaf?: boolean }[];
+  defaultUnitId?: number;
   onSubmit?: (data: {
     amount: number;
-    category: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm';
+    category: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm' | string;
     purpose: string;
+    unitId?: number;
     taxCode?: string;
     vendorName?: string;
     receiptUrl?: string;
@@ -31,11 +35,15 @@ interface ExpenseModalProps {
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   isOpen,
   onClose,
+  units,
+  defaultUnitId,
   onSubmit,
 }) => {
   const [amount, setAmount] = useState<string>('');
-  const [category, setCategory] = useState<'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm'>('Ăn uống');
+  const [category, setCategory] = useState<'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm' | string>('Ăn uống');
   const [purpose, setPurpose] = useState<string>('');
+  const [selectedUnitId, setSelectedUnitId] = useState<number | undefined>(defaultUnitId);
+  const [availableUnits, setAvailableUnits] = useState<{ id: number; name: string; isLeaf?: boolean }[]>(units || []);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanStatusText, setScanStatusText] = useState<string>('');
@@ -51,6 +59,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (units && units.length > 0) {
+      setAvailableUnits(units);
+      if (!selectedUnitId) setSelectedUnitId(defaultUnitId || units[0].id);
+    } else {
+      unitApi.getUnitTree().then((res: any) => {
+        const raw = res.data;
+        const list = Array.isArray(raw) ? raw : (raw?.flat || []);
+        setAvailableUnits(list);
+        if (!selectedUnitId && list.length > 0) {
+          setSelectedUnitId(defaultUnitId || list[0].id);
+        }
+      }).catch(() => {});
+    }
+  }, [units, defaultUnitId, isOpen]);
 
   if (!isOpen) return null;
 
@@ -148,6 +173,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         amount: parsedAmount,
         category,
         purpose: purpose.trim() || 'Chi tiêu công tác',
+        unitId: selectedUnitId,
         taxCode: taxData?.taxCode,
         vendorName: taxData?.companyName,
         receiptUrl: imagePreview || undefined,
@@ -355,6 +381,22 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 </div>
               </div>
               
+              {/* Chọn đơn vị (Unit) */}
+              <div>
+                <label className="nv-label">Đơn vị chi tiêu (Unit) *</label>
+                <select 
+                  value={selectedUnitId || ''}
+                  onChange={(e) => setSelectedUnitId(Number(e.target.value))}
+                  className="nv-input bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer"
+                >
+                  {availableUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} (ID: #{u.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Danh mục */}
               <div>
                 <label className="nv-label">Danh mục chi tiêu *</label>

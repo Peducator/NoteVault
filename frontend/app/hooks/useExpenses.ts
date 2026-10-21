@@ -6,8 +6,9 @@ import { expenseApi } from '../apis/expenseApi';
 
 export interface NewExpensePayload {
   amount: number;
-  category: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm';
+  category: string;
   purpose: string;
+  unitId?: number;
   taxCode?: string;
   vendorName?: string;
   receiptUrl?: string;
@@ -37,13 +38,6 @@ function saveLocalExpenses(expenses: Expense[]) {
   }
 }
 
-function getApiBaseUrl(): string {
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:5000`;
-  }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-}
-
 /**
  * Fetch danh sách chi tiêu:
  * - Nếu có JWT Token, gọi API Backend GET /api/transactions
@@ -67,20 +61,16 @@ async function fetchExpenses(): Promise<Expense[]> {
 
     // Map dữ liệu từ backend sang cấu trúc Expense chuẩn
     const mapped: Expense[] = rawTransactions.map((tx: any) => {
-      let cat: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm' = 'Ăn uống';
-      const catName = tx.category?.name || '';
-      if (catName.includes('Đi lại') || catName.includes('Di chuyển')) cat = 'Đi lại';
-      else if (catName.includes('Mua sắm') || catName.includes('Thiết bị')) cat = 'Mua sắm';
-      else if (catName.includes('Phần mềm') || catName.includes('Dịch vụ')) cat = 'Phần mềm';
-
+      const catName = tx.category?.name || 'Khác';
       const scanStatus = tx.scanStatus === 'INFECTED' ? 'INFECTED' : tx.scanStatus === 'PENDING_SCAN' ? 'PENDING_SCAN' : 'CLEAN';
-      const approvalStatus = tx.status === 'REJECTED' ? 'REJECTED' : tx.status === 'APPROVED' ? 'APPROVED' : 'PENDING';
+      const approvalStatus = tx.status === 'REJECTED' ? 'REJECTED' : tx.status === 'APPROVED' ? 'APPROVED' : tx.status === 'PAID' ? 'PAID' : 'SUBMITTED';
 
       return {
         id: `EXP-${tx.id}`,
         user: tx.user?.fullName || tx.user?.name || 'Người dùng',
+        userId: tx.userId,
         purpose: tx.note || 'Chi phí công tác',
-        category: cat,
+        category: catName,
         date: tx.transactionDate ? String(tx.transactionDate).split('T')[0] : new Date().toISOString().split('T')[0],
         amount: Number(tx.amount) || 0,
         scanStatus,
@@ -88,6 +78,9 @@ async function fetchExpenses(): Promise<Expense[]> {
         taxCode: tx.taxCode,
         vendorName: tx.vendorName,
         receiptUrl: tx.s3Key || tx.receiptUrl,
+        unitId: tx.unitId,
+        unitName: tx.unit?.name,
+        rejectionReason: tx.rejectionReason,
       };
     });
 
@@ -104,6 +97,7 @@ async function fetchExpenses(): Promise<Expense[]> {
  * - Hỗ trợ polling định kỳ (refetchInterval: 5000)
  * - Tự động refetch khi người dùng active tab (refetchOnWindowFocus)
  * - Mutation nộp hóa đơn mới với optimistic update và tự động invalidate cache
+ * - Mutation Duyệt & Từ chối giao dịch chuẩn cấp quản lý trực tiếp
  */
 export function useExpenses() {
   const queryClient = useQueryClient();
@@ -119,8 +113,8 @@ export function useExpenses() {
     queryKey: ['expenses'],
     queryFn: fetchExpenses,
     placeholderData: getLocalExpenses,
-    refetchInterval: 5000, // Polling định kỳ mỗi 5s để đồng bộ trên mọi thiết bị
-    refetchOnWindowFocus: true, // Khi mở lại ứng dụng/tab, tự động tải dữ liệu mới nhất
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
     staleTime: 3000,
   });
 
@@ -132,7 +126,37 @@ export function useExpenses() {
         ? JSON.parse(localStorage.getItem('nv_user') || '{}') 
         : { fullName: 'Người dùng' };
 
-      const newExpenseItem: Expense = {
+      // Gửi lên backend nếu có token
+      if (token) {
+        const res = await expenseApi.createTransaction({
+          amount: payload.amount,
+          categoryId: 1, // Fallback default category
+          unitId: payload.unitId,
+          note: payload.purpose,
+          transactionDate: new Date().toISOString(),
+          scanStatus: 'CLEAN',
+          taxCode: payload.taxCode,
+          vendorName: payload.vendorName,
+          receiptUrl: payload.receiptUrl,
+        });
+
+        if (res?.data) {
+          const createdTx = res.data;
+          return {
+            id: `EXP-${createdTx.id}`,
+            user: currentUser.fullName || currentUser.name || 'Người dùng',
+            purpose: createdTx.note,
+            category: payload.category || 'Chi phí',
+            date: new Date().toISOString().split('T')[0],
+            amount: Number(createdTx.amount),
+            scanStatus: 'CLEAN' as const,
+            approvalStatus: createdTx.status as any,
+            unitId: createdTx.unitId,
+          };
+        }
+      }
+
+      const fallbackExpense: Expense = {
         id: `EXP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
         user: currentUser.fullName || currentUser.name || 'Người dùng',
         purpose: payload.purpose || 'Chi phí công tác',
@@ -140,44 +164,81 @@ export function useExpenses() {
         date: new Date().toISOString().split('T')[0],
         amount: Number(payload.amount) || 0,
         scanStatus: 'CLEAN',
-        approvalStatus: 'PENDING',
+        approvalStatus: 'SUBMITTED',
         taxCode: payload.taxCode,
         vendorName: payload.vendorName,
         receiptUrl: payload.receiptUrl,
       };
 
-      // Gửi lên backend nếu có token
-      if (token) {
-        try {
-          await expenseApi.createTransaction({
-            amount: payload.amount,
-            categoryId: 1, // Default category ID
-            note: payload.purpose,
-            transactionDate: new Date().toISOString(),
-            scanStatus: 'CLEAN',
-            taxCode: payload.taxCode,
-            vendorName: payload.vendorName,
-            receiptUrl: payload.receiptUrl,
-          });
-        } catch (e) {
-          console.warn('[Sync] Lỗi lưu giao dịch lên máy chủ, lưu cục bộ:', e);
-        }
-      }
-
-      // Lưu vào cache cục bộ
       const current = getLocalExpenses();
-      const updated = [newExpenseItem, ...current];
-      saveLocalExpenses(updated);
-
-      return newExpenseItem;
+      saveLocalExpenses([fallbackExpense, ...current]);
+      return fallbackExpense;
     },
-    onSuccess: (newExpense) => {
-      // Cập nhật ngay lập tức query cache trong bộ nhớ
-      queryClient.setQueryData<Expense[]>(['expenses'], (old = []) => [newExpense, ...old]);
-      // Invalidate để TanStack Query đồng bộ với server
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['unitTree'] });
     },
   });
+
+  // 3. Mutation: Phê duyệt giao dịch
+  const approveExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string | number) => {
+      const numericId = String(expenseId).replace(/^EXP-/, '');
+      return expenseApi.approveTransaction(numericId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['unitTree'] });
+    },
+  });
+
+  // 4. Mutation: Từ chối giao dịch với lý do
+  const rejectExpenseMutation = useMutation({
+    mutationFn: async (payload: { expenseId: string | number; reason: string }) => {
+      const numericId = String(payload.expenseId).replace(/^EXP-/, '');
+      return expenseApi.rejectTransaction(numericId, payload.reason);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['unitTree'] });
+    },
+  });
+
+  const approveExpense = async (expenseId: string | number) => {
+    return approveExpenseMutation.mutateAsync(expenseId);
+  };
+
+  const rejectExpense = async (
+    arg1: string | number | { expenseId: string | number; reason: string },
+    arg2?: string
+  ) => {
+    let expenseId: string | number = '';
+    let reason = '';
+    if (typeof arg1 === 'object' && arg1 !== null) {
+      expenseId = arg1.expenseId;
+      reason = arg1.reason;
+    } else {
+      expenseId = arg1;
+      reason = arg2 || '';
+    }
+    return rejectExpenseMutation.mutateAsync({ expenseId, reason });
+  };
+
+  // 5. Mutation: Hoàn ứng giao dịch (PAID - Đã thanh toán)
+  const payExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string | number) => {
+      const numericId = String(expenseId).replace(/^EXP-/, '');
+      return expenseApi.payTransaction(numericId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['unitTree'] });
+    },
+  });
+
+  const payExpense = async (expenseId: string | number) => {
+    return payExpenseMutation.mutateAsync(expenseId);
+  };
 
   return {
     expenses,
@@ -187,5 +248,11 @@ export function useExpenses() {
     refetch,
     addExpense: addExpenseMutation.mutateAsync,
     isAdding: addExpenseMutation.isPending,
+    approveExpense,
+    isApproving: approveExpenseMutation.isPending,
+    rejectExpense,
+    isRejecting: rejectExpenseMutation.isPending,
+    payExpense,
+    isPaying: payExpenseMutation.isPending,
   };
 }
