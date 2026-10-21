@@ -3,17 +3,10 @@ name: NoteVault CI/CD Pipeline
 on:
   push:
     branches:
-      - master
-      - main
-      - staging
-      - dev
-      - 'feature/**'
-      - 'fix/**'
+      - '**'
   pull_request:
     branches:
-      - master
-      - main
-      - staging
+      - '**'
   workflow_dispatch:
 
 concurrency:
