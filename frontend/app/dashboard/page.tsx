@@ -119,7 +119,7 @@ function DashboardContent() {
   if (isLoadingAuth) {
     return (
       <Flex justify="center" align="center" style={{ height: '100vh' }}>
-        <Spin size="large" tip="Đang tải bảng điều khiển..." />
+        <Spin size="large" description="Đang tải bảng điều khiển..." />
       </Flex>
     );
   }
@@ -172,7 +172,7 @@ function DashboardContent() {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout hasSider style={{ minHeight: '100vh' }}>
       <Sidebar
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -264,7 +264,7 @@ export default function DashboardPage() {
     <Suspense
       fallback={
         <Flex justify="center" align="center" style={{ height: '100vh' }}>
-          <Spin size="large" tip="Đang tải dữ liệu..." />
+          <Spin size="large" description="Đang tải dữ liệu..." />
         </Flex>
       }
     >

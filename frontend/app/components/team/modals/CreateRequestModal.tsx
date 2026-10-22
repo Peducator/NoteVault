@@ -79,18 +79,18 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
       confirmLoading={isSubmitting}
       okText="Gửi yêu cầu"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         <Alert
-          message="Yêu cầu sẽ được chuyển đến người quản lý của đơn vị cấp trên trực tiếp để phê duyệt."
+          title="Yêu cầu sẽ được chuyển đến người quản lý của đơn vị cấp trên trực tiếp để phê duyệt."
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
         />
 
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -127,7 +127,7 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
               placeholder="Ví dụ: 15,000,000"
-              addonAfter="VND"
+              suffix="VND"
             />
           </Form.Item>
 

@@ -74,19 +74,19 @@ export const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
       confirmLoading={isSubmitting}
       okText="Tạo đơn vị"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {parentUnit ? (
           <Alert
-            message={<span>Đơn vị cấp trên (Parent): <strong>{parentUnit.name}</strong></span>}
+            title={<span>Đơn vị cấp trên (Parent): <strong>{parentUnit.name}</strong></span>}
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
           />
         ) : (
           <Alert
-            message="Đơn vị này sẽ được đặt ở cấp cao nhất trong cây tổ chức"
+            title="Đơn vị này sẽ được đặt ở cấp cao nhất trong cây tổ chức"
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
@@ -94,7 +94,7 @@ export const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
         )}
 
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form

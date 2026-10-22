@@ -180,7 +180,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
       align: 'right',
       sorter: (a, b) => a.amount - b.amount,
       render: (val) => (
-        <Text strong style={{ fontSize: 13 }}>
+        <Text strong style={{ fontSize: 13 }} className="tabular-nums">
           {formatVND(val)}
         </Text>
       ),
@@ -275,7 +275,6 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
 
   return (
     <Card
-      bordered
       title={
         <Flex justify="space-between" align="center" wrap="wrap" gap="small">
           <div>
@@ -331,6 +330,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
         okText="Xác nhận từ chối"
         cancelText="Đóng"
         okButtonProps={{ danger: true }}
+        destroyOnHidden
       >
         <Flex vertical gap="small" style={{ marginTop: 16 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>

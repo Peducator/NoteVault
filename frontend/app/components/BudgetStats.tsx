@@ -1,13 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Row, Col, Card, Statistic, Progress, Typography, Flex } from 'antd';
-import {
-  PieChartOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-} from '@ant-design/icons';
+import { Card, Row, Col, Progress, Typography, Flex, theme } from 'antd';
 import { formatVND } from '../lib/format';
+import { useTheme } from '../context/ThemeContext';
 
 const { Text } = Typography;
 
@@ -26,118 +22,123 @@ export const BudgetStats: React.FC<BudgetStatsProps> = ({
   pendingReimbursement,
   approvedReimbursed,
 }) => {
-  const usedPercentage = Math.min(100, Math.round((usedAmount / allowance) * 100));
+  const { token } = theme.useToken();
+  const { theme: currentTheme } = useTheme();
+  const isDark = currentTheme === 'dark';
+  const usedPercentage = allowance > 0 ? Math.min(100, Math.round((usedAmount / allowance) * 100)) : 0;
   const remainingAmount = Math.max(0, allowance - usedAmount);
 
   return (
-    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-      {/* Card 1: Hạn mức phòng ban */}
-      <Col xs={24} sm={12} lg={8}>
-        <Card bordered hoverable style={{ height: '100%' }}>
-          <Flex justify="space-between" align="flex-start">
-            <div>
-              <Text type="secondary" style={{ fontSize: 13 }}>
-                Hạn mức {departmentName}
+    <Card
+      styles={{ body: { padding: 0 } }}
+      style={{
+        marginBottom: 24,
+        overflow: 'hidden',
+        border: `1px solid ${token.colorBorder}`,
+        borderRadius: 10,
+      }}
+    >
+      <Row>
+        {/* Metric 1: Hạn Mức & Đã Chi */}
+        <Col
+          xs={24}
+          md={8}
+          style={{
+            padding: '20px 24px',
+            borderRight: `1px solid ${token.colorBorder}`,
+            borderBottom: `1px solid ${token.colorBorder}`,
+            backgroundColor: isDark ? 'rgba(59, 130, 246, 0.08)' : 'rgba(30, 58, 138, 0.04)',
+          }}
+        >
+          <Flex vertical gap={4}>
+            <Flex justify="space-between" align="center">
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em' }}>
+                HẠN MỨC {departmentName.toUpperCase()}
               </Text>
-              <div style={{ fontSize: 24, fontWeight: 700, margin: '6px 0 12px 0' }}>
-                {formatVND(allowance)}
-              </div>
-            </div>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: 'rgba(37, 99, 235, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#2563eb',
-                fontSize: 18,
-              }}
-            >
-              <PieChartOutlined />
-            </div>
-          </Flex>
+              <Text style={{ fontSize: 12, fontWeight: 700, color: usedPercentage > 85 ? token.colorError : token.colorPrimary }}>
+                {usedPercentage}% ĐÃ CHI
+              </Text>
+            </Flex>
 
-          <Progress
-            percent={usedPercentage}
-            status={usedPercentage > 85 ? 'exception' : 'active'}
-            strokeColor={usedPercentage > 85 ? '#ef4444' : '#2563eb'}
-            size={['100%', 8]}
-          />
-          <Flex justify="space-between" style={{ marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Đã chi: <strong>{formatVND(usedAmount)}</strong>
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Còn lại: <strong>{formatVND(remainingAmount)}</strong>
-            </Text>
-          </Flex>
-        </Card>
-      </Col>
+            <div style={{ fontSize: 26, fontWeight: 800, color: token.colorText, margin: '4px 0' }} className="tabular-nums">
+              {formatVND(allowance)}
+            </div>
 
-      {/* Card 2: Đang chờ duyệt hoàn ứng */}
-      <Col xs={24} sm={12} lg={8}>
-        <Card bordered hoverable style={{ height: '100%' }}>
-          <Flex justify="space-between" align="flex-start">
-            <Statistic
-              title={<Text type="secondary">Đang chờ duyệt hoàn ứng</Text>}
-              value={formatVND(pendingReimbursement)}
-              valueStyle={{ fontWeight: 700, fontSize: 24 }}
+            <Progress
+              percent={usedPercentage}
+              showInfo={false}
+              size={['100%', 5]}
+              strokeColor={usedPercentage > 85 ? token.colorError : token.colorPrimary}
+              trailColor={token.colorFillSecondary}
             />
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: 'rgba(217, 119, 6, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#d97706',
-                fontSize: 18,
-              }}
-            >
-              <ClockCircleOutlined />
-            </div>
-          </Flex>
-          <Text type="secondary" style={{ fontSize: 12, marginTop: 16, display: 'block' }}>
-            Các hóa đơn đang chờ quản lý và kế toán xác nhận
-          </Text>
-        </Card>
-      </Col>
 
-      {/* Card 3: Đã thanh toán */}
-      <Col xs={24} sm={24} lg={8}>
-        <Card bordered hoverable style={{ height: '100%' }}>
-          <Flex justify="space-between" align="flex-start">
-            <Statistic
-              title={<Text type="secondary">Đã thanh toán (Tháng này)</Text>}
-              value={formatVND(approvedReimbursed)}
-              valueStyle={{ fontWeight: 700, fontSize: 24, color: '#16a34a' }}
-            />
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: 'rgba(22, 163, 74, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#16a34a',
-                fontSize: 18,
-              }}
-            >
-              <CheckCircleOutlined />
-            </div>
+            <Flex justify="space-between" style={{ marginTop: 8 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Đã sử dụng: <strong style={{ color: token.colorText }}>{formatVND(usedAmount)}</strong>
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Khả dụng: <strong style={{ color: token.colorSuccess }}>{formatVND(remainingAmount)}</strong>
+              </Text>
+            </Flex>
           </Flex>
-          <Text type="secondary" style={{ fontSize: 12, marginTop: 16, display: 'block' }}>
-            Đã chuyển khoản trực tiếp vào tài khoản nhân viên
-          </Text>
-        </Card>
-      </Col>
-    </Row>
+        </Col>
+
+        {/* Metric 2: Đang Chờ Duyệt (Pending) */}
+        <Col
+          xs={24}
+          md={8}
+          style={{
+            padding: '20px 24px',
+            borderRight: `1px solid ${token.colorBorder}`,
+            borderBottom: `1px solid ${token.colorBorder}`,
+            backgroundColor: isDark ? 'rgba(217, 119, 6, 0.10)' : 'rgba(217, 119, 6, 0.05)',
+          }}
+        >
+          <Flex vertical gap={4}>
+            <Flex align="center" gap={8}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: token.colorWarning }} />
+              <Text style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', color: token.colorWarning }}>
+                CHỜ DUYỆT HOÀN ỨNG
+              </Text>
+            </Flex>
+
+            <div style={{ fontSize: 26, fontWeight: 800, color: token.colorWarning, margin: '4px 0' }} className="tabular-nums">
+              {formatVND(pendingReimbursement)}
+            </div>
+
+            <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+              Hóa đơn đang trong quy trình đối soát thẩm quyền cấp quản lý
+            </Text>
+          </Flex>
+        </Col>
+
+        {/* Metric 3: Đã Thanh Toán Hoàn Ứng (Paid) */}
+        <Col
+          xs={24}
+          md={8}
+          style={{
+            padding: '20px 24px',
+            backgroundColor: isDark ? 'rgba(16, 185, 129, 0.10)' : 'rgba(5, 150, 105, 0.05)',
+          }}
+        >
+          <Flex vertical gap={4}>
+            <Flex align="center" gap={8}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: token.colorSuccess }} />
+              <Text style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', color: token.colorSuccess }}>
+                ĐÃ QUYẾT TOÁN THÁNG NÀY
+              </Text>
+            </Flex>
+
+            <div style={{ fontSize: 26, fontWeight: 800, color: token.colorSuccess, margin: '4px 0' }} className="tabular-nums">
+              {formatVND(approvedReimbursed)}
+            </div>
+
+            <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>
+              Đã hoàn tiền thực tế vào tài khoản ngân hàng của nhân viên
+            </Text>
+          </Flex>
+        </Col>
+      </Row>
+    </Card>
   );
 };

@@ -108,7 +108,9 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
       }
 
       if (allocRes.status === 'fulfilled' && allocRes.value.success) {
-        setAllocations(allocRes.value.data || []);
+        const aData = allocRes.value.data as any;
+        const list = Array.isArray(aData) ? aData : aData?.items || aData?.allocations || [];
+        setAllocations(list);
       }
 
       if (reqRes.status === 'fulfilled' && reqRes.value.success) {
@@ -232,6 +234,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
       children: (
         <UnitTreeTab
           units={units}
+          isLoading={isLoading}
           onOpenCreateModal={handleOpenCreateUnit}
           onOpenAllocateModal={handleOpenAllocate}
           onOpenRecallModal={handleOpenRecall}
@@ -330,11 +333,20 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
             icon={<ReloadOutlined spin={isLoading} />}
             onClick={loadData}
             loading={isLoading}
+            aria-label="Làm mới"
           >
-            Làm mới
+            <span className="tab-refresh-text">Làm mới</span>
           </Button>
         }
       />
+
+      <style jsx global>{`
+        @media (max-width: 576px) {
+          .tab-refresh-text {
+            display: none !important;
+          }
+        }
+      `}</style>
 
       {/* Modals */}
       <RecallModal

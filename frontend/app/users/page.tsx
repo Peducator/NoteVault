@@ -13,7 +13,7 @@ function UsersRedirectContent() {
 
   return (
     <Flex justify="center" align="center" style={{ height: '100vh' }}>
-      <Spin size="large" tip="Đang chuyển hướng đến quản lý thành viên..." />
+      <Spin size="large" description="Đang chuyển hướng đến quản lý thành viên..." />
     </Flex>
   );
 }

@@ -106,7 +106,6 @@ export const JoinRequestsTab: React.FC<JoinRequestsTabProps> = ({
 
   return (
     <Card
-      bordered
       title={
         <div>
           <Text strong style={{ fontSize: 16 }}>Hàng Đợi Đơn Xin Gia Nhập Doanh Nghiệp</Text>
@@ -118,7 +117,7 @@ export const JoinRequestsTab: React.FC<JoinRequestsTabProps> = ({
     >
       <Table<JoinRequest>
         columns={columns}
-        dataSource={joinRequests}
+        dataSource={Array.isArray(joinRequests) ? joinRequests : []}
         rowKey="requestId"
         pagination={{ pageSize: 8, showSizeChanger: true }}
       />
@@ -137,7 +136,7 @@ export const JoinRequestsTab: React.FC<JoinRequestsTabProps> = ({
         onCancel={() => setSelectedRequest(null)}
         okText="Xác nhận phê duyệt"
         cancelText="Hủy"
-        destroyOnClose
+        destroyOnHidden
       >
         <Flex vertical gap="middle" style={{ padding: '12px 0' }}>
           <div>

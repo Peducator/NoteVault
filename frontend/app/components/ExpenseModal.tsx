@@ -68,12 +68,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      form.resetFields();
       setImagePreview(null);
       setTaxData(null);
       setScanError(null);
       return;
     }
+
+    form.resetFields();
 
     if (units && units.length > 0) {
       setAvailableUnits(units);
@@ -183,12 +184,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       onCancel={onClose}
       footer={null}
       width={680}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {/* Khu vực Upload OCR */}
         <Card
-          bordered
           style={{
             background: 'rgba(37, 99, 235, 0.03)',
             borderColor: 'rgba(37, 99, 235, 0.2)',
@@ -229,12 +229,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </Card>
 
         {scanError && (
-          <Alert message={scanError} type="warning" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={scanError} type="warning" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         {taxData && (
           <Alert
-            message={
+            title={
               <Flex align="center" gap="small">
                 <CheckCircleOutlined style={{ color: '#16a34a' }} />
                 <Text strong>Xác thực hóa đơn: {taxData.companyName} (MST: {taxData.taxCode})</Text>
@@ -272,7 +272,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
               placeholder="Ví dụ: 350,000"
-              addonAfter="VND"
+              suffix="VND"
             />
           </Form.Item>
 

@@ -14,6 +14,7 @@ import {
   Space,
   Flex,
   Divider,
+  theme,
 } from 'antd';
 import {
   SafetyCertificateOutlined,
@@ -39,6 +40,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   loginHref = '/login',
   registerHref = '/register-company',
 }) => {
+  const { token } = theme.useToken();
   const [selectedDemoUnit, setSelectedDemoUnit] = useState<'root' | 'kd' | 'sales'>('sales');
 
   const demoData = {
@@ -125,12 +127,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(140, 140, 140, 0.2)',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          background: 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(10px)',
+          background: token.colorBgContainer,
+          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
         }}
       >
         <Flex align="center" gap="small">
@@ -139,7 +141,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               width: 34,
               height: 34,
               borderRadius: 8,
-              background: '#2563eb',
+              background: '#1e3a8a',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -196,11 +198,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Interactive Demo Unit Tree */}
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px 60px 24px', width: '100%' }}>
         <Card
-          bordered
           title={
             <Flex justify="space-between" align="center" wrap="wrap" gap="small">
               <Space>
-                <ApartmentOutlined style={{ color: '#2563eb' }} />
+                <ApartmentOutlined style={{ color: '#1e3a8a' }} />
                 <Text strong>Mô hình Phân Cấp Ngân Sách Tự Động (Interactive Demo)</Text>
               </Space>
               <Segmented
@@ -226,7 +227,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <Paragraph type="secondary" style={{ marginTop: 8 }}>
                   {currentDemo.description}
                 </Paragraph>
-                <div style={{ padding: '8px 12px', background: 'rgba(37, 99, 235, 0.05)', borderRadius: 8 }}>
+                <div style={{ padding: '8px 12px', background: 'rgba(30, 58, 138, 0.05)', borderRadius: 8 }}>
                   <Text type="secondary" style={{ fontSize: 12 }}>Hoạt động gần nhất:</Text>
                   <div style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>{currentDemo.recentActivity}</div>
                 </div>
@@ -235,25 +236,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <Col xs={24} md={12}>
               <Row gutter={[16, 16]}>
                 <Col span={12}>
-                  <Card bordered size="small">
+                  <Card size="small">
                     <Text type="secondary" style={{ fontSize: 12 }}>Tổng nhận vào</Text>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#2563eb', marginTop: 4 }}>
+                    <div className="tabular-nums" style={{ fontSize: 18, fontWeight: 700, color: '#1e3a8a', marginTop: 4 }}>
                       {formatVND(currentDemo.totalIn)}
                     </div>
                   </Card>
                 </Col>
                 <Col span={12}>
-                  <Card bordered size="small">
+                  <Card size="small">
                     <Text type="secondary" style={{ fontSize: 12 }}>Đã cấp / Đã chi</Text>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#ea580c', marginTop: 4 }}>
+                    <div className="tabular-nums" style={{ fontSize: 18, fontWeight: 700, color: '#d97706', marginTop: 4 }}>
                       {formatVND(currentDemo.totalOut)}
                     </div>
                   </Card>
                 </Col>
                 <Col span={24}>
-                  <Card bordered size="small" style={{ background: 'rgba(22, 163, 74, 0.04)', borderColor: '#86efac' }}>
+                  <Card size="small" style={{ background: 'rgba(5, 150, 105, 0.04)', borderColor: '#a7f3d0' }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>Số dư an toàn (Safe Balance)</Text>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a', marginTop: 4 }}>
+                    <div className="tabular-nums" style={{ fontSize: 24, fontWeight: 800, color: '#059669', marginTop: 4 }}>
                       {formatVND(currentDemo.safeBalance)}
                     </div>
                   </Card>
@@ -271,8 +272,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </Title>
         <Row gutter={[24, 24]}>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered hoverable style={{ height: '100%' }}>
-              <ApartmentOutlined style={{ fontSize: 28, color: '#2563eb', marginBottom: 16 }} />
+            <Card hoverable style={{ height: '100%' }}>
+              <ApartmentOutlined style={{ fontSize: 28, color: '#1e3a8a', marginBottom: 16 }} />
               <Title level={4}>Cây Đơn Vị Phân Tầng</Title>
               <Paragraph type="secondary" style={{ fontSize: 13 }}>
                 Phân nhánh theo cơ cấu thực tế: Ban giám đốc, Khối phòng ban, Chi nhánh, Nhóm dự án.
@@ -280,8 +281,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered hoverable style={{ height: '100%' }}>
-              <ScanOutlined style={{ fontSize: 28, color: '#16a34a', marginBottom: 16 }} />
+            <Card hoverable style={{ height: '100%' }}>
+              <ScanOutlined style={{ fontSize: 28, color: '#059669', marginBottom: 16 }} />
               <Title level={4}>AI OCR Bóc Tách Hóa Đơn</Title>
               <Paragraph type="secondary" style={{ fontSize: 13 }}>
                 Tự động nhận diện tổng tiền, mã số thuế, tên đơn vị bán từ ảnh chụp hóa đơn trong tích tắc.
@@ -289,8 +290,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered hoverable style={{ height: '100%' }}>
-              <DollarOutlined style={{ fontSize: 28, color: '#ea580c', marginBottom: 16 }} />
+            <Card hoverable style={{ height: '100%' }}>
+              <DollarOutlined style={{ fontSize: 28, color: '#d97706', marginBottom: 16 }} />
               <Title level={4}>Chuẩn Số Tiền BigInt VND</Title>
               <Paragraph type="secondary" style={{ fontSize: 13 }}>
                 Lưu trữ tiền tệ bằng số nguyên chính xác tuyệt đối, triệt tiêu lỗi làm tròn dấu phẩy động.
@@ -298,8 +299,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </Card>
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card bordered hoverable style={{ height: '100%' }}>
-              <LockOutlined style={{ fontSize: 28, color: '#8b5cf6', marginBottom: 16 }} />
+            <Card hoverable style={{ height: '100%' }}>
+              <LockOutlined style={{ fontSize: 28, color: '#4f46e5', marginBottom: 16 }} />
               <Title level={4}>Bảo Mật Multi-Tenant</Title>
               <Paragraph type="secondary" style={{ fontSize: 13 }}>
                 Cách ly dữ liệu 100% giữa các công ty, mã hóa đường truyền và nhật ký kiểm toán bất biến.

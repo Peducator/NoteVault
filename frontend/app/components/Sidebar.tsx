@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layout, Menu, Avatar, Tag, Button, Flex, Typography, Drawer, Divider, Space } from 'antd';
+import { Layout, Menu, Avatar, Tag, Button, Flex, Typography, Drawer, Divider, theme } from 'antd';
 import {
   DashboardOutlined,
   FileDoneOutlined,
@@ -10,11 +10,10 @@ import {
   FileTextOutlined,
   LogoutOutlined,
   BankOutlined,
-  SafetyCertificateOutlined,
+  SafetyCertificateFilled,
   CloseOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { ThemeToggle } from './ThemeToggle';
 
 const { Sider } = Layout;
 const { Text } = Typography;
@@ -44,30 +43,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen = false,
   onClose,
 }) => {
+  const { token } = theme.useToken();
   const displayUnit = unitName || departmentName || 'Đơn vị';
 
   const menuItems = [
-    { key: 'overview', icon: <DashboardOutlined />, label: 'Sổ cái & Chi tiêu' },
-    { key: 'expenses', icon: <FileDoneOutlined />, label: 'Hóa đơn & Chứng từ' },
-    { key: 'units', icon: <ApartmentOutlined />, label: 'Cây Đơn Vị & Ngân Sách' },
-    { key: 'users', icon: <TeamOutlined />, label: 'Thành viên tổ chức' },
+    { key: 'overview', icon: <DashboardOutlined style={{ fontSize: 16 }} />, label: 'Sổ cái & Chi tiêu' },
+    { key: 'expenses', icon: <FileDoneOutlined style={{ fontSize: 16 }} />, label: 'Hóa đơn & Chứng từ' },
+    { key: 'units', icon: <ApartmentOutlined style={{ fontSize: 16 }} />, label: 'Cây Đơn Vị & Ngân Sách' },
+    { key: 'users', icon: <TeamOutlined style={{ fontSize: 16 }} />, label: 'Thành viên tổ chức' },
   ];
 
   const sidebarContent = (
-    <Flex vertical style={{ height: '100%', padding: '16px' }} justify="space-between">
-      {/* Header section */}
+    <Flex vertical style={{ height: '100%', padding: '20px 16px', overflowY: 'auto' }} justify="space-between">
+      {/* Top branding & organization context */}
       <Flex vertical gap="middle">
         <Flex align="center" justify="space-between">
           <Flex align="center" gap="small">
-            <Avatar
-              shape="square"
-              size={36}
-              style={{ backgroundColor: '#2563eb' }}
-              icon={<SafetyCertificateOutlined />}
-            />
-            <Text strong style={{ fontSize: '18px', letterSpacing: '-0.5px' }}>
-              NoteVault
-            </Text>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: token.colorPrimary,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontSize: 18,
+              }}
+            >
+              <SafetyCertificateFilled />
+            </div>
+            <Flex vertical>
+              <Text strong style={{ fontSize: '16px', letterSpacing: '-0.3px', color: token.colorText, lineHeight: 1.2 }}>
+                NoteVault
+              </Text>
+              <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Treasury Engine
+              </Text>
+            </Flex>
           </Flex>
           {onClose && (
             <Button
@@ -79,44 +93,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </Flex>
 
-        {/* Tenant Box */}
+        {/* Tenant Box - Crisp institutional styling */}
         <div
           style={{
             padding: '10px 12px',
-            borderRadius: '8px',
-            border: '1px solid rgba(140, 140, 140, 0.2)',
-            background: 'rgba(140, 140, 140, 0.05)',
+            borderRadius: 8,
+            border: `1px solid ${token.colorBorder}`,
+            background: token.colorFillSecondary,
           }}
         >
-          <Flex align="center" gap="small">
-            <BankOutlined style={{ fontSize: '16px', color: '#1677ff' }} />
-            <Flex vertical style={{ overflow: 'hidden' }}>
-              <Text strong ellipsis style={{ fontSize: '12px' }}>
+          <Flex align="center" justify="space-between" style={{ marginBottom: 4 }}>
+            <Flex align="center" gap={6}>
+              <BankOutlined style={{ fontSize: '13px', color: token.colorPrimary }} />
+              <Text strong ellipsis style={{ fontSize: '12px', color: token.colorText }}>
                 {tenantName}
               </Text>
-              <Text type="secondary" style={{ fontSize: '10px' }}>
-                FinTech Multi-Tenant
-              </Text>
             </Flex>
+            {userRole === 'ROOT' && (
+              <Tag color="purple" style={{ margin: 0, fontSize: 10, padding: '0 4px', lineHeight: '18px' }}>
+                ROOT
+              </Tag>
+            )}
           </Flex>
-        </div>
-
-        {/* Đơn vị trực thuộc */}
-        <div
-          style={{
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid rgba(140, 140, 140, 0.15)',
-            background: 'rgba(140, 140, 140, 0.03)',
-          }}
-        >
-          <Flex justify="space-between" align="center">
-            <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 600 }}>
-              Đơn vị
-            </Text>
-            {userRole === 'ROOT' && <Tag color="purple">ROOT</Tag>}
-          </Flex>
-          <Text strong ellipsis style={{ fontSize: '12px', marginTop: 2, display: 'block' }}>
+          <Text type="secondary" ellipsis style={{ fontSize: '11px', display: 'block' }}>
             {displayUnit}
           </Text>
         </div>
@@ -130,41 +129,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (onClose) onClose();
           }}
           items={menuItems}
-          style={{ border: 'none', background: 'transparent' }}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            fontWeight: 500,
+            fontSize: '13px',
+          }}
         />
       </Flex>
 
-      {/* Footer User & Action Controls */}
+      {/* Footer User Info & Actions */}
       <Flex vertical gap="small">
-        <Divider style={{ margin: '8px 0' }} />
-        <Flex align="center" justify="space-between">
-          <Flex align="center" gap="small" style={{ overflow: 'hidden' }}>
-            <Avatar style={{ backgroundColor: '#1677ff' }}>
-              {userName.charAt(0).toUpperCase()}
-            </Avatar>
-            <Flex vertical style={{ overflow: 'hidden' }}>
-              <Text strong ellipsis style={{ fontSize: '12px' }}>
-                {userName}
-              </Text>
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                {userRole === 'ROOT' ? 'Quản trị ROOT' : 'Thành viên'}
-              </Text>
-            </Flex>
+        <Divider style={{ margin: '12px 0', borderColor: token.colorBorderSecondary }} />
+        
+        <Flex align="center" gap="small" style={{ padding: '4px 6px', overflow: 'hidden' }}>
+          <Avatar
+            style={{
+              backgroundColor: token.colorPrimary,
+              color: '#ffffff',
+              fontSize: 12,
+              fontWeight: 600,
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+            }}
+          >
+            {userName.charAt(0).toUpperCase()}
+          </Avatar>
+          <Flex vertical style={{ minWidth: 0, overflow: 'hidden', flex: 1 }}>
+            <Text strong ellipsis style={{ fontSize: '12px', color: token.colorText }}>
+              {userName}
+            </Text>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              {userRole === 'ROOT' ? 'Quản trị tối cao' : 'Thành viên'}
+            </Text>
           </Flex>
-          <ThemeToggle />
         </Flex>
 
-        <Link href="/docs" target="_blank" style={{ width: '100%' }}>
-          <Button icon={<FileTextOutlined />} block type="dashed" size="small">
-            API Docs & Đối soát
+        <Link href="/docs" target="_blank" style={{ width: '100%', marginTop: 4 }}>
+          <Button icon={<FileTextOutlined />} block size="small" style={{ fontSize: 12, borderRadius: 6 }}>
+            Tài liệu API & Đối soát
           </Button>
         </Link>
 
         <Button
           danger
+          type="text"
           icon={<LogoutOutlined />}
           block
           size="small"
+          style={{ fontSize: 12, textAlign: 'left', justifyContent: 'flex-start' }}
           onClick={() => {
             if (onLogout) onLogout();
             else onTabChange('logout');
@@ -185,29 +199,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onClose={onClose}
         closable={false}
         styles={{ body: { padding: 0 } }}
-        width={270}
+        size={270}
       >
         {sidebarContent}
       </Drawer>
 
       {/* Desktop Sider */}
-      <div
-        style={{
-          width: 260,
-          flexShrink: 0,
-          borderRight: '1px solid rgba(140, 140, 140, 0.2)',
-          display: 'none',
-        }}
+      <Sider
+        width={250}
         className="sidebar-desktop-container"
+        style={{
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          background: token.colorBgContainer,
+        }}
+        trigger={null}
+        breakpoint="lg"
+        collapsedWidth={0}
       >
         {sidebarContent}
-      </div>
+      </Sider>
 
       <style jsx global>{`
-        @media (min-width: 992px) {
+        @media (max-width: 991px) {
           .sidebar-desktop-container {
-            display: block !important;
+            display: none !important;
           }
+        }
+        .ant-menu-item-selected {
+          font-weight: 600 !important;
+          color: ${token.colorPrimary} !important;
         }
       `}</style>
     </>

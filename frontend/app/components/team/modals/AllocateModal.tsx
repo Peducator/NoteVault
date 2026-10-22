@@ -83,12 +83,12 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({
       confirmLoading={isSubmitting}
       okText="Xác nhận cấp tiền"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {sourceUnit ? (
           <Alert
-            message={
+            title={
               <div>
                 Đơn vị nguồn: <strong>{sourceUnit.name}</strong> • Số dư an toàn:{' '}
                 <strong style={{ color: '#16a34a' }}>{formatVND(safeBalance)}</strong>
@@ -100,7 +100,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({
           />
         ) : (
           <Alert
-            message="Cấp ngân sách từ Quỹ chủ sở hữu gốc (ROOT / Công ty mẹ)"
+            title="Cấp ngân sách từ Quỹ chủ sở hữu gốc (ROOT / Công ty mẹ)"
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
@@ -108,7 +108,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({
         )}
 
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -145,7 +145,7 @@ export const AllocateModal: React.FC<AllocateModalProps> = ({
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
               placeholder="Ví dụ: 10,000,000"
-              addonAfter="VND"
+              suffix="VND"
             />
           </Form.Item>
 

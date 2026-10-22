@@ -69,11 +69,11 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
       confirmLoading={isSubmitting}
       okText="Thêm nhân sự"
       cancelText="Hủy"
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useTransition } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -20,7 +20,6 @@ const THEME_STORAGE_KEY = 'nv_theme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
-  const [, startTransition] = useTransition();
 
   // Khởi tạo theme từ localStorage khi component mount phía client
   useEffect(() => {
@@ -39,13 +38,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const applyTheme = (newTheme: Theme) => {
+    if (typeof document === 'undefined') return;
     const root = document.documentElement;
     if (newTheme === 'dark') {
       root.classList.add('dark');
       root.setAttribute('data-theme', 'dark');
+      root.style.colorScheme = 'dark';
     } else {
       root.classList.remove('dark');
       root.setAttribute('data-theme', 'light');
+      root.style.colorScheme = 'light';
     }
   };
 
@@ -60,9 +62,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTheme = () => {
-    startTransition(() => {
-      const nextTheme = theme === 'dark' ? 'light' : 'dark';
-      setTheme(nextTheme);
+    setThemeState((prevTheme) => {
+      const nextTheme = prevTheme === 'dark' ? 'light' : 'dark';
+      applyTheme(nextTheme);
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      } catch {
+        // ignore
+      }
+      return nextTheme;
     });
   };
 

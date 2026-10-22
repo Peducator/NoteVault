@@ -92,7 +92,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                   width: 38,
                   height: 38,
                   borderRadius: 8,
-                  background: '#2563eb',
+                  background: '#1e3a8a',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -116,7 +116,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
             {errorMessage && (
               <Alert
-                message={errorMessage}
+                title={errorMessage}
                 type="error"
                 showIcon
                 closable
@@ -141,6 +141,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 ]}
               >
                 <Input
+                  id="email"
+                  type="email"
                   prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                   placeholder="admin@abc.test hoặc email của bạn"
                 />
@@ -156,6 +158,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
               >
                 <Input.Password
+                  id="password"
                   prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
                   placeholder="Mật khẩu của bạn"
                 />
@@ -188,16 +191,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           xs={0}
           lg={12}
           style={{
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            background: 'linear-gradient(135deg, #0b1329 0%, #1e3a8a 100%)',
             color: '#fff',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
             padding: 64,
           }}
         >
-          <div>
-            <div
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: 600 }}>
+            <div>
+              <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -223,7 +224,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </Paragraph>
 
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(10px)',
@@ -231,7 +232,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 borderRadius: 12,
               }}
             >
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Flex vertical gap="middle" style={{ width: '100%' }}>
                 <Flex justify="space-between" align="center">
                   <Text style={{ color: '#94a3b8' }}>Thời gian duyệt ngân sách</Text>
                   <Text strong style={{ color: '#4ade80' }}>
@@ -250,13 +251,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                     Chính xác 99.8%
                   </Text>
                 </Flex>
-              </Space>
+              </Flex>
             </Card>
           </div>
 
           <Text style={{ color: '#64748b', fontSize: 12 }}>
             © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
           </Text>
+          </div>
         </Col>
       </Row>
     </div>

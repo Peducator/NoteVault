@@ -72,7 +72,7 @@ export const DirectAllocationsTab: React.FC<DirectAllocationsTabProps> = ({
       render: (amount, record) => {
         const isRecall = record.type === 'RECALL';
         return (
-          <Text strong style={{ color: isRecall ? '#d97706' : '#16a34a', fontSize: 13 }}>
+          <Text strong className="tabular-nums" style={{ color: isRecall ? '#d97706' : '#059669', fontSize: 13 }}>
             {isRecall ? `-${formatVND(Number(amount))}` : `+${formatVND(Number(amount))}`}
           </Text>
         );
@@ -103,7 +103,6 @@ export const DirectAllocationsTab: React.FC<DirectAllocationsTabProps> = ({
 
   return (
     <Card
-      bordered
       title={
         <Flex justify="space-between" align="center" wrap="wrap" gap="small">
           <div>
@@ -125,7 +124,7 @@ export const DirectAllocationsTab: React.FC<DirectAllocationsTabProps> = ({
     >
       <Table<Allocation>
         columns={columns}
-        dataSource={allocations}
+        dataSource={Array.isArray(allocations) ? allocations : []}
         rowKey="id"
         pagination={{ pageSize: 8, showSizeChanger: true }}
         scroll={{ x: 750 }}

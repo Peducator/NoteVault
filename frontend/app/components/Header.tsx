@@ -1,17 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Flex, Button, Typography, Badge, Space, Tooltip } from 'antd';
+import { Flex, Button, Typography, Badge, Space, Tooltip, theme } from 'antd';
 import {
   MenuOutlined,
   PlusOutlined,
-  SyncOutlined,
-  CheckCircleOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 import { ThemeToggle } from './ThemeToggle';
 
-const { Title } = Typography;
+const { Text } = Typography;
 
 interface HeaderProps {
   title?: string;
@@ -28,19 +26,27 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMenu,
   onLogout,
 }) => {
+  const { token } = theme.useToken();
+
   return (
     <header
+      className="dashboard-header"
       style={{
-        height: '64px',
+        height: '60px',
         padding: '0 24px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid rgba(140, 140, 140, 0.2)',
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        background: token.colorBgContainer,
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
         flexShrink: 0,
+        gap: '12px',
       }}
     >
-      <Flex align="center" gap="middle">
+      <Flex align="center" gap="middle" style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
         {onToggleMenu && (
           <Button
             type="text"
@@ -48,20 +54,26 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onToggleMenu}
             className="header-mobile-toggle"
             aria-label="Mở menu"
+            style={{ flexShrink: 0 }}
           />
         )}
-        <Title level={4} style={{ margin: 0 }}>
-          {title}
-        </Title>
+        <Flex align="baseline" gap="small" style={{ minWidth: 0, overflow: 'hidden' }}>
+          <Text strong style={{ fontSize: '15px', color: token.colorText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {title}
+          </Text>
+          <Text type="secondary" style={{ fontSize: '12px' }} className="header-crumb-text">
+            / NoteVault Treasury
+          </Text>
+        </Flex>
       </Flex>
 
-      <Space size="middle" align="center">
-        {/* Chỉ báo đồng bộ */}
+      <Space size="middle" align="center" style={{ flexShrink: 0 }}>
+        {/* Live sync badge */}
         <Badge
           status={isSyncing ? 'processing' : 'success'}
           text={
-            <span style={{ fontSize: '12px', color: 'gray' }} className="header-sync-text">
-              {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ trực tiếp'}
+            <span style={{ fontSize: '12px', color: token.colorTextSecondary, fontWeight: 500 }} className="header-sync-text">
+              {isSyncing ? 'Đang đồng bộ...' : 'Hệ thống trực tuyến'}
             </span>
           }
         />
@@ -73,13 +85,18 @@ export const Header: React.FC<HeaderProps> = ({
             type="primary"
             icon={<PlusOutlined />}
             onClick={onNewExpenseClick}
+            style={{
+              backgroundColor: token.colorPrimary,
+              borderRadius: 6,
+              fontWeight: 600,
+            }}
           >
-            Nộp hóa đơn
+            <span className="header-new-expense-text">Nộp hóa đơn</span>
           </Button>
         )}
 
         {onLogout && (
-          <Tooltip title="Đăng xuất">
+          <Tooltip title="Đăng xuất an toàn">
             <Button
               danger
               type="text"
@@ -100,8 +117,13 @@ export const Header: React.FC<HeaderProps> = ({
           }
         }
         @media (max-width: 576px) {
-          .header-sync-text {
-            display: none;
+          .header-sync-text,
+          .header-new-expense-text,
+          .header-crumb-text {
+            display: none !important;
+          }
+          .dashboard-header {
+            padding: 0 14px !important;
           }
         }
       `}</style>

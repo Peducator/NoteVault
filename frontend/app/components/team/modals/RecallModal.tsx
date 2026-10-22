@@ -92,12 +92,12 @@ export const RecallModal: React.FC<RecallModalProps> = ({
       okText="Xác nhận thu hồi"
       cancelText="Hủy"
       okButtonProps={{ danger: true }}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {sourceUnit && (
           <Alert
-            message={
+            title={
               <div>
                 Thu hồi từ: <strong>{sourceUnit.name}</strong> • Số dư an toàn tối đa được thu hồi:{' '}
                 <strong style={{ color: '#d97706' }}>{formatVND(safeBalance)}</strong>
@@ -112,7 +112,7 @@ export const RecallModal: React.FC<RecallModalProps> = ({
         )}
 
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -135,7 +135,7 @@ export const RecallModal: React.FC<RecallModalProps> = ({
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
               placeholder="Ví dụ: 5,000,000"
-              addonAfter="VND"
+              suffix="VND"
             />
           </Form.Item>
 

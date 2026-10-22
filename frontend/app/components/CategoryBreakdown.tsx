@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, Progress, Alert, Typography, Flex, Empty } from 'antd';
+import { Card, Progress, Alert, Typography, Flex, Empty, theme } from 'antd';
 import { formatVND } from '../lib/format';
 
 const { Title, Text } = Typography;
@@ -28,11 +28,15 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
   departmentName = 'Phòng ban',
   usagePercent = 0,
 }) => {
+  const { token } = theme.useToken();
   const totalSpent = categories.reduce((sum, c) => sum + (c.spent ?? c.amount ?? 0), 0) || 1;
 
   return (
     <Flex vertical gap="middle">
-      <Card bordered title={<Title level={5} style={{ margin: 0 }}>Phân bổ theo danh mục</Title>}>
+      <Card
+        title={<Title level={5} style={{ margin: 0, fontSize: 14 }}>Phân Bổ Chi Phí Theo Danh Mục</Title>}
+        style={{ border: `1px solid ${token.colorBorder}` }}
+      >
         {categories.length === 0 ? (
           <Empty description="Chưa có dữ liệu chi tiêu" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
@@ -45,10 +49,12 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
               return (
                 <div key={idx}>
                   <Flex justify="space-between" style={{ marginBottom: 4 }}>
-                    <Text strong style={{ fontSize: 13 }}>{name}</Text>
-                    <Text strong style={{ fontSize: 13 }}>{formatVND(spent)}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>{name}</Text>
+                    <Text strong style={{ fontSize: 13 }} className="tabular-nums">
+                      {formatVND(spent)}
+                    </Text>
                   </Flex>
-                  <Progress percent={percent} size="small" strokeColor="#2563eb" />
+                  <Progress percent={percent} size="small" strokeColor={token.colorPrimary} trailColor={token.colorFillSecondary} />
                 </div>
               );
             })}
@@ -57,17 +63,18 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
       </Card>
 
       <Alert
-        message={<Text strong>Tình trạng hạn mức ngân sách</Text>}
+        title={<Text strong style={{ fontSize: 13 }}>Giám sát trần ngân sách</Text>}
         description={
           <span style={{ fontSize: 12 }}>
-            {departmentName} đã sử dụng <strong>{usagePercent}%</strong> ngân sách tháng.{' '}
+            {departmentName} đã chi <strong>{usagePercent}%</strong> hạn mức kỳ này.{' '}
             {usagePercent >= 80
-              ? 'Vui lòng kiểm soát các khoản chi để tránh vượt trần ngân sách.'
-              : 'Các khoản chi đang nằm trong giới hạn an toàn.'}
+              ? 'Cần phê duyệt thận trọng để không thấu chi nguồn vốn phân tầng.'
+              : 'Dòng tiền đang được kiểm soát trong ngưỡng an toàn tuyệt đối.'}
           </span>
         }
-        type={usagePercent >= 80 ? 'error' : 'warning'}
+        type={usagePercent >= 80 ? 'error' : 'info'}
         showIcon
+        style={{ border: `1px solid ${token.colorBorder}` }}
       />
     </Flex>
   );

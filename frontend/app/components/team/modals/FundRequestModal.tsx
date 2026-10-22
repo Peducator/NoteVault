@@ -78,12 +78,12 @@ export const FundRequestModal: React.FC<FundRequestModalProps> = ({
       okText="Xác nhận giải ngân"
       cancelText="Hủy"
       okButtonProps={{ type: 'primary', style: { backgroundColor: '#16a34a' } }}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '12px 0' }}>
         {request && (
           <Alert
-            message={
+            title={
               <div>
                 Đơn vị nhận: <strong>{request.destinationUnit?.name}</strong> • Số tiền yêu cầu:{' '}
                 <strong style={{ color: '#16a34a' }}>{formatVND(requestAmount)}</strong>
@@ -98,7 +98,7 @@ export const FundRequestModal: React.FC<FundRequestModalProps> = ({
         )}
 
         {errorMessage && (
-          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+          <Alert title={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
         )}
 
         <Form form={form} layout="vertical" onFinish={handleSubmit}>

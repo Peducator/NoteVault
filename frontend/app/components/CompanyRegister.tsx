@@ -102,7 +102,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
                   width: 38,
                   height: 38,
                   borderRadius: 8,
-                  background: '#2563eb',
+                  background: '#1e3a8a',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -126,7 +126,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
 
             {errorMessage && (
               <Alert
-                message={errorMessage}
+                title={errorMessage}
                 type="error"
                 showIcon
                 closable
@@ -137,7 +137,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
 
             {successMessage && (
               <Alert
-                message={successMessage}
+                title={successMessage}
                 type="success"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -261,16 +261,14 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
           xs={0}
           lg={12}
           style={{
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            background: 'linear-gradient(135deg, #0b1329 0%, #1e3a8a 100%)',
             color: '#fff',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
             padding: 64,
           }}
         >
-          <div>
-            <div
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: 600 }}>
+            <div>
+              <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -296,7 +294,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
             </Paragraph>
 
             <Card
-              bordered={false}
+              variant="borderless"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(10px)',
@@ -304,7 +302,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
                 borderRadius: 12,
               }}
             >
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Flex vertical gap="middle" style={{ width: '100%' }}>
                 <Flex justify="space-between" align="center">
                   <Text style={{ color: '#94a3b8' }}>Không gian lưu trữ hóa đơn S3</Text>
                   <Text strong style={{ color: '#4ade80' }}>
@@ -323,13 +321,14 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
                     Lưu trữ minh bạch trọn đời
                   </Text>
                 </Flex>
-              </Space>
+              </Flex>
             </Card>
           </div>
 
           <Text style={{ color: '#64748b', fontSize: 12 }}>
             © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
           </Text>
+          </div>
         </Col>
       </Row>
     </div>

@@ -1,5 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --color-canvas: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-border: #cbd5e1;
+  --color-border-subtle: #e2e8f0;
+}
+
+html.dark, html[data-theme='dark'] {
+  --color-canvas: #090d16;
+  --color-surface: #111827;
+  --color-border: rgba(255, 255, 255, 0.16);
+  --color-border-subtle: rgba(255, 255, 255, 0.10);
 }
 
 *, *::before, *::after {
@@ -14,16 +27,33 @@ html, body {
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-canvas);
+  color: #0f172a;
+}
+
+html.dark body, html[data-theme='dark'] body {
+  background-color: var(--color-canvas);
+  color: #f1f5f9;
 }
 
 body {
   overflow-x: hidden;
 }
 
-/* Tinh chỉnh thanh cuộn hiện đại */
+/* Tabular numbers for accounting & financial accuracy */
+.tabular-nums, 
+.ant-table-cell, 
+.ant-statistic-content-value, 
+.ant-typography strong,
+.amount-text {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Tinh chỉnh thanh cuộn thanh mảnh hiện đại */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -31,27 +61,44 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.3);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.7);
+  background: rgba(148, 163, 184, 0.6);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(113, 113, 122, 0.4);
+  background: rgba(113, 113, 122, 0.3);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(113, 113, 122, 0.7);
+  background: rgba(113, 113, 122, 0.6);
 }
 
-/* Đảm bảo Antd table và card hiển thị đầy đủ */
+/* Thay thế box-shadow thô bằng hairline border tinh tế */
 .ant-card {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--color-border) !important;
 }
 
 .ant-layout {
   min-height: 100vh;
+}
+
+/* Hairline horizontal divider utility */
+.hairline-b {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hairline-r {
+  border-right: 1px solid var(--color-border);
+}
+
+@media (max-width: 991px) {
+  .ant-col-xs-0 {
+    display: none !important;
+  }
 }

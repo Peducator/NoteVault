@@ -170,7 +170,7 @@ export const AllocationRequestsTab: React.FC<AllocationRequestsTabProps> = ({
       align: 'right',
       sorter: (a, b) => Number(a.amount) - Number(b.amount),
       render: (amount) => (
-        <Text strong style={{ color: '#2563eb', fontSize: 13 }}>
+        <Text strong className="tabular-nums" style={{ color: '#1e3a8a', fontSize: 13 }}>
           {formatVND(Number(amount))}
         </Text>
       ),
@@ -284,7 +284,6 @@ export const AllocationRequestsTab: React.FC<AllocationRequestsTabProps> = ({
 
   return (
     <Card
-      bordered
       title={
         <Flex justify="space-between" align="center" wrap="wrap" gap="small">
           <div>
@@ -320,7 +319,7 @@ export const AllocationRequestsTab: React.FC<AllocationRequestsTabProps> = ({
     >
       <Table<AllocationRequestItem>
         columns={columns}
-        dataSource={filteredRequests}
+        dataSource={Array.isArray(filteredRequests) ? filteredRequests : []}
         rowKey="id"
         pagination={{ pageSize: 8, showSizeChanger: true }}
         scroll={{ x: 750 }}
@@ -339,6 +338,7 @@ export const AllocationRequestsTab: React.FC<AllocationRequestsTabProps> = ({
         okText="Xác nhận từ chối"
         cancelText="Đóng"
         okButtonProps={{ danger: true }}
+        destroyOnHidden
       >
         <Flex vertical gap="small" style={{ marginTop: 16 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>

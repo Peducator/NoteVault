@@ -135,7 +135,6 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
 
   return (
     <Card
-      bordered
       title={
         <Flex justify="space-between" align="center" wrap="wrap" gap="small">
           <Text strong style={{ fontSize: 16 }}>Danh sách Nhân sự ({filteredEmployees.length})</Text>
@@ -175,7 +174,7 @@ export const EmployeesTab: React.FC<EmployeesTabProps> = ({
     >
       <Table<EmployeeUser>
         columns={columns}
-        dataSource={filteredEmployees}
+        dataSource={Array.isArray(filteredEmployees) ? filteredEmployees : []}
         rowKey="id"
         pagination={{ pageSize: 8, showSizeChanger: true }}
         scroll={{ x: 600 }}
