@@ -119,10 +119,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           if (scanRes.success && scanRes.data) {
             const parsed = scanRes.data;
+            const detectedAmount = parsed.amount !== undefined && parsed.amount !== null
+              ? Number(parsed.amount)
+              : (parsed.totalAmount ? Number(parsed.totalAmount) : undefined);
+            const detectedCategory = parsed.category || parsed.suggestedCategory || 'Ăn uống';
+            const detectedPurpose = parsed.purpose || (parsed.vendorName ? `Thanh toán ${parsed.vendorName}` : '');
+
             form.setFieldsValue({
-              amount: parsed.totalAmount ? Number(parsed.totalAmount) : undefined,
-              purpose: parsed.purpose || parsed.vendorName ? `Thanh toán ${parsed.vendorName || ''}` : '',
-              category: parsed.suggestedCategory || 'Ăn uống',
+              amount: detectedAmount,
+              purpose: detectedPurpose,
+              category: detectedCategory,
               taxCode: parsed.taxCode || '',
               vendorName: parsed.vendorName || '',
             });

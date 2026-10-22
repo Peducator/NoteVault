@@ -77,15 +77,14 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
     throw error;
   }
 
-  // Danh sách model ưu tiên (Ưu tiên dòng Flash-Lite cực nhẹ, không bị High Demand 503)
+  // Danh sách model ưu tiên (Sử dụng model Flash tối ưu tốc độ và tỷ lệ thành công)
   const candidateModels = [
     process.env.GEMINI_MODEL,
-    'gemini-3.5-flash-lite',
     'gemini-flash-lite-latest',
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
     'gemini-flash-latest',
-    'gemini-3.7-flash',
+    'gemini-1.5-flash',
   ].filter(Boolean);
 
   // Loại bỏ model trùng nhau
@@ -188,6 +187,8 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
 
   return {
     ...parsed,
+    totalAmount: parsed.amount,
+    suggestedCategory: parsed.category,
     mode: 'gemini_flash_backend',
   };
 };
