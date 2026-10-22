@@ -6,8 +6,19 @@
  */
 
 export const getApiUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    // Trong trình duyệt client:
+    // Nếu có NEXT_PUBLIC_API_URL dạng http(s) thì dùng, còn lại mặc định relative path ""
+    // Không bao giờ fallback về localhost:5000 trên trình duyệt của người dùng!
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && envUrl.startsWith('http')) {
+      return envUrl.replace(/\/api\/?$/, '');
+    }
+    return '';
+  }
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 };
+
 
 
 
@@ -97,7 +108,9 @@ export async function apiFetch<T = any>(
   isRetry = false
 ): Promise<T> {
   const apiUrl = getApiUrl();
-  const url = endpoint.startsWith('http') ? endpoint : `${apiUrl}${endpoint}`;
+  const cleanEp = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : (apiUrl ? `${apiUrl.replace(/\/+$/, '')}${cleanEp}` : cleanEp);
+
 
   // Chuẩn bị headers
   const headers = new Headers(options.headers || {});
