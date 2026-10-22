@@ -94,3 +94,9 @@ terraform/
 *.tfvars.json
 *.pem
 *.key
+
+# ==========================================
+# 11. Database Seed Scripts (Never push to remote)
+# ==========================================
+backend/prisma/seed*.js
+seed*.js
