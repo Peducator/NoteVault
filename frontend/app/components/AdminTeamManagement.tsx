@@ -1,16 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { Tabs, Button, Badge, App, Flex } from 'antd';
 import {
-  Layers,
-  Send,
-  Coins,
-  Users,
-  Clock,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react';
+  ApartmentOutlined,
+  SendOutlined,
+  DollarOutlined,
+  TeamOutlined,
+  ClockCircleOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import { Unit, Allocation, EmployeeUser, JoinRequest } from '../types/expense';
 import { unitApi } from '../apis/unitApi';
 import { allocationApi } from '../apis/allocationApi';
@@ -50,20 +49,18 @@ function flattenUnitTree(nodes: Unit[], depth = 0): HierarchicalUnit[] {
 export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
   onRefreshStats,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'units' | 'requests' | 'allocations' | 'employees' | 'joinRequests'>('units');
+  const { message } = App.useApp();
+  const [activeSubTab, setActiveSubTab] = useState<string>('units');
 
   // Data states
   const [units, setUnits] = useState<HierarchicalUnit[]>([]);
-  const [rawTree, setRawTree] = useState<Unit[]>([]);
+  const [, setRawTree] = useState<Unit[]>([]);
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [requests, setRequests] = useState<AllocationRequestItem[]>([]);
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-
-  // Status feedback
   const [isLoading, setIsLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ text: string; isError?: boolean } | null>(null);
 
   // Modals state
   const [isRecallModalOpen, setIsRecallModalOpen] = useState(false);
@@ -83,20 +80,11 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [unitForAddMember, setUnitForAddMember] = useState<Unit | null>(null);
 
-  // Show Toast Helper
-  const showToast = (text: string, isError = false) => {
-    setToastMessage({ text, isError });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
-  };
-
   // Fetch all team & budget data
   const loadData = async () => {
     try {
       setIsLoading(true);
 
-      // Load user profile from storage
       const storedUser = localStorage.getItem('nv_user');
       if (storedUser) {
         try {
@@ -112,7 +100,6 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
         userApi.getJoinRequests(),
       ]);
 
-      // Units
       if (unitRes.status === 'fulfilled' && unitRes.value.success) {
         const data = unitRes.value.data as any;
         const treeData: Unit[] = Array.isArray(data) ? data : data.tree || [];
@@ -120,29 +107,25 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
         setUnits(flattenUnitTree(treeData));
       }
 
-      // Allocations
       if (allocRes.status === 'fulfilled' && allocRes.value.success) {
         setAllocations(allocRes.value.data || []);
       }
 
-      // Requests
       if (reqRes.status === 'fulfilled' && reqRes.value.success) {
         const rData = reqRes.value.data as any;
         const reqList = Array.isArray(rData) ? rData : rData?.requests || [];
         setRequests(reqList);
       }
 
-      // Employees
       if (empRes.status === 'fulfilled' && empRes.value.success) {
         setEmployees(empRes.value.data || []);
       }
 
-      // Join requests
       if (joinRes.status === 'fulfilled' && joinRes.value.success) {
         setJoinRequests(joinRes.value.data || []);
       }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi tải dữ liệu phòng ban', true);
+      message.error(err.message || 'Lỗi tải dữ liệu phòng ban');
     } finally {
       setIsLoading(false);
     }
@@ -182,33 +165,31 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
   };
 
   const handleDeleteUnit = async (unitId: number) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa đơn vị trống này không?')) return;
     try {
       const res = await unitApi.deleteUnit(unitId);
       if (res.success) {
-        showToast(res.message || 'Đã xóa đơn vị thành công');
+        message.success(res.message || 'Đã xóa đơn vị thành công');
         loadData();
         onRefreshStats?.();
       } else {
-        showToast(res.message || 'Không thể xóa đơn vị', true);
+        message.error(res.message || 'Không thể xóa đơn vị');
       }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi xóa đơn vị', true);
+      message.error(err.message || 'Lỗi khi xóa đơn vị');
     }
   };
 
   const handleRemoveMember = async (unitId: number, userId: number) => {
-    if (!confirm('Bạn có chắc chắn muốn gỡ nhân viên này khỏi đơn vị không?')) return;
     try {
       const res = await unitApi.removeMember(unitId, userId);
       if (res.success) {
-        showToast('Đã gỡ nhân viên khỏi đơn vị');
+        message.success('Đã gỡ nhân viên khỏi đơn vị');
         loadData();
       } else {
-        showToast(res.message || 'Không thể gỡ nhân viên', true);
+        message.error(res.message || 'Không thể gỡ nhân viên');
       }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi gỡ nhân viên', true);
+      message.error(err.message || 'Lỗi khi gỡ nhân viên');
     }
   };
 
@@ -216,152 +197,39 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
     try {
       const res = await userApi.approveJoinRequest(requestId, role, unitId);
       if (res.success) {
-        showToast('Đã duyệt đơn đăng ký nhân viên thành công');
+        message.success('Đã duyệt đơn đăng ký nhân viên thành công');
         loadData();
       } else {
-        showToast(res.message || 'Không thể duyệt đơn', true);
+        message.error(res.message || 'Không thể duyệt đơn');
       }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi duyệt đơn', true);
+      message.error(err.message || 'Lỗi khi duyệt đơn');
     }
   };
 
   const handleRejectJoin = async (requestId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn từ chối đơn đăng ký này?')) return;
     try {
       const res = await userApi.rejectJoinRequest(requestId);
       if (res.success) {
-        showToast('Đã từ chối đơn xin gia nhập');
+        message.success('Đã từ chối đơn xin gia nhập');
         loadData();
       } else {
-        showToast(res.message || 'Không thể từ chối đơn', true);
+        message.error(res.message || 'Không thể từ chối đơn');
       }
     } catch (err: any) {
-      showToast(err.message || 'Lỗi khi từ chối đơn', true);
+      message.error(err.message || 'Lỗi khi từ chối đơn');
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div
-          className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 shadow-md transition-all ${
-            toastMessage.isError
-              ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-              : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {toastMessage.isError ? (
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-            ) : (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-            )}
-            <span>{toastMessage.text}</span>
-          </div>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-2 overflow-x-auto scrollbar-none">
-        <div className="flex items-center gap-2">
-          {/* Tab 1: Units Tree */}
-          <button
-            onClick={() => setActiveSubTab('units')}
-            className={`h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === 'units'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Cây Đơn Vị & Ngân Sách</span>
-          </button>
-
-          {/* Tab 2: Allocation Requests */}
-          <button
-            onClick={() => setActiveSubTab('requests')}
-            className={`h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === 'requests'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Yêu Cầu Cấp Ngân Sách</span>
-            {pendingRequestsCount > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full">
-                {pendingRequestsCount}
-              </span>
-            )}
-          </button>
-
-          {/* Tab 3: Direct Allocations */}
-          <button
-            onClick={() => setActiveSubTab('allocations')}
-            className={`h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === 'allocations'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            <Coins className="w-3.5 h-3.5" />
-            <span>Sổ Cái Cấp Phát</span>
-          </button>
-
-          {/* Tab 4: Employees */}
-          <button
-            onClick={() => setActiveSubTab('employees')}
-            className={`h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === 'employees'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Nhân Sự ({employees.length})</span>
-          </button>
-
-          {/* Tab 5: Join Requests */}
-          <button
-            onClick={() => setActiveSubTab('joinRequests')}
-            className={`h-10 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === 'joinRequests'
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs'
-                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            <span>Đơn Gia Nhập</span>
-            {pendingJoinCount > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500 text-white rounded-full">
-                {pendingJoinCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Refresh button */}
-        <button
-          onClick={loadData}
-          disabled={isLoading}
-          title="Tải lại toàn bộ dữ liệu"
-          className="h-9 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Làm mới</span>
-        </button>
-      </div>
-
-      {/* Sub-Tab Contents */}
-      {activeSubTab === 'units' && (
+  const tabItems = [
+    {
+      key: 'units',
+      label: (
+        <span>
+          <ApartmentOutlined /> Cây Đơn Vị & Ngân Sách
+        </span>
+      ),
+      children: (
         <UnitTreeTab
           units={units}
           onOpenCreateModal={handleOpenCreateUnit}
@@ -371,9 +239,18 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           onDeleteUnit={handleDeleteUnit}
           currentUserRole={currentUser?.role}
         />
-      )}
-
-      {activeSubTab === 'requests' && (
+      ),
+    },
+    {
+      key: 'requests',
+      label: (
+        <Badge count={pendingRequestsCount} size="small" offset={[8, 0]}>
+          <span>
+            <SendOutlined /> Yêu Cầu Cấp Ngân Sách
+          </span>
+        </Badge>
+      ),
+      children: (
         <AllocationRequestsTab
           requests={requests}
           units={units}
@@ -384,20 +261,34 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
             setRequestForFund(req);
             setIsFundModalOpen(true);
           }}
-          onToast={showToast}
+          onToast={(msg, isErr) => (isErr ? message.error(msg) : message.success(msg))}
         />
-      )}
-
-      {activeSubTab === 'allocations' && (
+      ),
+    },
+    {
+      key: 'allocations',
+      label: (
+        <span>
+          <DollarOutlined /> Sổ Cái Cấp Phát
+        </span>
+      ),
+      children: (
         <DirectAllocationsTab
           allocations={allocations}
           units={units}
           onOpenAllocateModal={() => handleOpenAllocate(null)}
           onOpenRecallModal={handleOpenRecall}
         />
-      )}
-
-      {activeSubTab === 'employees' && (
+      ),
+    },
+    {
+      key: 'employees',
+      label: (
+        <span>
+          <TeamOutlined /> Nhân Sự ({employees.length})
+        </span>
+      ),
+      children: (
         <EmployeesTab
           employees={employees}
           units={units}
@@ -405,16 +296,45 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           onRemoveMember={handleRemoveMember}
           currentUserRole={currentUser?.role}
         />
-      )}
-
-      {activeSubTab === 'joinRequests' && (
+      ),
+    },
+    {
+      key: 'joinRequests',
+      label: (
+        <Badge count={pendingJoinCount} size="small" offset={[8, 0]}>
+          <span>
+            <ClockCircleOutlined /> Đơn Gia Nhập
+          </span>
+        </Badge>
+      ),
+      children: (
         <JoinRequestsTab
           joinRequests={joinRequests}
           units={units}
           onApprove={handleApproveJoin}
           onReject={handleRejectJoin}
         />
-      )}
+      ),
+    },
+  ];
+
+  return (
+    <Flex vertical gap="middle">
+      <Tabs
+        activeKey={activeSubTab}
+        onChange={(key) => setActiveSubTab(key)}
+        items={tabItems}
+        size="large"
+        tabBarExtraContent={
+          <Button
+            icon={<ReloadOutlined spin={isLoading} />}
+            onClick={loadData}
+            loading={isLoading}
+          >
+            Làm mới
+          </Button>
+        }
+      />
 
       {/* Modals */}
       <RecallModal
@@ -424,7 +344,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setUnitForRecall(null);
         }}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
           onRefreshStats?.();
         }}
@@ -439,7 +359,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setRequestForFund(null);
         }}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
           onRefreshStats?.();
         }}
@@ -450,7 +370,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
         isOpen={isCreateRequestModalOpen}
         onClose={() => setIsCreateRequestModalOpen(false)}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
         }}
         units={units}
@@ -463,7 +383,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setParentUnitForNewChild(null);
         }}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
           onRefreshStats?.();
         }}
@@ -478,7 +398,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setSourceUnitForAllocation(null);
         }}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
           onRefreshStats?.();
         }}
@@ -493,12 +413,12 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setUnitForAddMember(null);
         }}
         onSuccess={(msg) => {
-          showToast(msg);
+          message.success(msg);
           loadData();
         }}
         unit={unitForAddMember}
         employees={employees}
       />
-    </div>
+    </Flex>
   );
 };

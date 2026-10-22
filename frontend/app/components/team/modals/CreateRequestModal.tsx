@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Send, AlertTriangle, X, DollarSign } from 'lucide-react';
-import { formatVND } from '../../../lib/format';
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Select, InputNumber, Input, Alert, Typography, Flex } from 'antd';
+import { SendOutlined } from '@ant-design/icons';
 import { Unit } from '../../../types/expense';
 import { allocationRequestApi } from '../../../apis/allocationRequestApi';
+
+const { Text } = Typography;
 
 interface CreateRequestModalProps {
   isOpen: boolean;
@@ -21,170 +23,126 @@ export const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
   units,
   defaultUnitId,
 }) => {
-  const [selectedUnitId, setSelectedUnitId] = useState<number | undefined>(defaultUnitId || (units[0]?.id));
-  const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
+  const [form] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const validUnits = units.filter((u) => u.parentId !== null);
 
-  const validUnits = units.filter((u) => u.parentId !== null); // Đơn vị gốc không có cha thì không được xin
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    const numAmount = Number(amount);
-    if (!numAmount || numAmount <= 0) {
-      setErrorMsg('Vui lòng nhập số tiền xin cấp phát lớn hơn 0 VND');
-      return;
+  useEffect(() => {
+    if (isOpen) {
+      form.resetFields();
+      setErrorMessage(null);
+      if (defaultUnitId || validUnits[0]?.id) {
+        form.setFieldsValue({
+          destinationUnitId: defaultUnitId || validUnits[0]?.id,
+        });
+      }
     }
+  }, [isOpen, defaultUnitId, validUnits, form]);
 
-    if (!selectedUnitId) {
-      setErrorMsg('Vui lòng chọn đơn vị cần xin ngân sách');
-      return;
-    }
-
-    if (!reason.trim()) {
-      setErrorMsg('Vui lòng cung cấp lý do xin thêm ngân sách');
-      return;
-    }
+  const handleSubmit = async (values: any) => {
+    setErrorMessage(null);
 
     try {
       setIsSubmitting(true);
       const res = await allocationRequestApi.createRequest({
-        destinationUnitId: selectedUnitId,
-        amount: numAmount,
-        reason: reason.trim(),
+        destinationUnitId: values.destinationUnitId,
+        amount: Number(values.amount),
+        reason: values.reason.trim(),
       });
 
       if (res.success) {
-        onSuccess(res.message || `Đã gửi yêu cầu xin ${formatVND(numAmount)} lên cấp trên thành công`);
+        onSuccess(res.message || 'Gửi yêu cầu xin cấp ngân sách thành công');
         onClose();
-        setAmount('');
-        setReason('');
       } else {
-        setErrorMsg(res.message || 'Lỗi khi tạo yêu cầu xin ngân sách');
+        setErrorMessage(res.message || 'Không thể tạo yêu cầu');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi hệ thống khi gửi yêu cầu');
+      setErrorMessage(err.message || 'Lỗi khi gửi yêu cầu');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transition-all max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200 dark:border-blue-800/50">
-              <Send className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                Xin cấp thêm ngân sách
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Gửi yêu cầu lên đơn vị Cha trực tiếp để xét duyệt và rót vốn
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+    <Modal
+      title={
+        <Flex align="center" gap="small">
+          <SendOutlined style={{ color: '#2563eb' }} />
+          <span>Lập yêu cầu xin cấp ngân sách (Request)</span>
+        </Flex>
+      }
+      open={isOpen}
+      onCancel={onClose}
+      onOk={() => form.submit()}
+      confirmLoading={isSubmitting}
+      okText="Gửi yêu cầu"
+      cancelText="Hủy"
+      destroyOnClose
+    >
+      <div style={{ padding: '12px 0' }}>
+        <Alert
+          message="Yêu cầu sẽ được chuyển đến người quản lý của đơn vị cấp trên trực tiếp để phê duyệt."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+
+        {errorMessage && (
+          <Alert message={errorMessage} type="error" showIcon closable style={{ marginBottom: 16 }} />
+        )}
+
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            label={<Text strong>Đơn vị cần xin ngân sách</Text>}
+            name="destinationUnitId"
+            rules={[{ required: true, message: 'Vui lòng chọn đơn vị nhận tiền' }]}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
-          {errorMsg && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 rounded-xl text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Unit selection */}
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Đơn vị nhận ngân sách <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(Number(e.target.value))}
-              required
-              className="w-full h-11 px-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
-            >
-              {validUnits.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} (Trực thuộc: {u.parent?.name || 'Cấp trên'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Amount input */}
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Số tiền cần xin (VND) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min="1000"
-              step="1000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Ví dụ: 50000000"
-              required
-              className="w-full h-11 px-3.5 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
+            <Select
+              placeholder="Chọn phòng ban cần bổ sung quỹ"
+              options={validUnits.map((u) => ({
+                value: u.id,
+                label: u.name,
+              }))}
             />
-            {amount && !isNaN(Number(amount)) && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Bằng chữ: <span className="font-medium text-zinc-800 dark:text-zinc-200">{formatVND(Number(amount))}</span>
-              </p>
-            )}
-          </div>
+          </Form.Item>
 
-          {/* Reason input */}
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-              Lý do xin ngân sách <span className="text-red-500">*</span>
-            </label>
-            <textarea
+          <Form.Item
+            label={<Text strong>Số tiền đề xuất xin cấp (VND)</Text>}
+            name="amount"
+            rules={[
+              { required: true, message: 'Vui lòng nhập số tiền' },
+              {
+                validator: async (_, val) => {
+                  if (val !== undefined && Number(val) <= 0) {
+                    throw new Error('Số tiền phải lớn hơn 0');
+                  }
+                },
+              },
+            ]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+              placeholder="Ví dụ: 15,000,000"
+              addonAfter="VND"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<Text strong>Lý do đề xuất / Kế hoạch sử dụng</Text>}
+            name="reason"
+            rules={[{ required: true, message: 'Vui lòng nêu rõ lý do xin ngân sách' }]}
+          >
+            <Input.TextArea
               rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Nêu rõ mục đích chi tiêu (dự án mới, phát sinh máy chủ, chiến dịch marketing...)"
-              required
-              className="w-full p-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100 resize-none"
+              placeholder="Ví dụ: Bổ sung kinh phí tổ chức sự kiện khai trương chi nhánh..."
             />
-          </div>
-
-          {/* Actions */}
-          <div className="pt-2 flex items-center justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-11 px-4 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !amount || Number(amount) <= 0 || !reason.trim()}
-              className="h-11 px-5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-xs flex items-center gap-2"
-            >
-              <Send className={`w-4 h-4 ${isSubmitting ? 'animate-spin' : ''}`} />
-              <span>{isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}</span>
-            </button>
-          </div>
-        </form>
+          </Form.Item>
+        </Form>
       </div>
-    </div>
+    </Modal>
   );
 };

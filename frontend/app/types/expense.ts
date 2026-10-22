@@ -45,10 +45,12 @@ export interface Unit {
 export interface Allocation {
   id: number;
   amount: string | number;
+  type?: 'ALLOCATE' | 'RECALL' | string;
   sourceUnitId: number | null;
   targetUnitId: number;
   tenantId: number;
   note?: string | null;
+  reason?: string | null;
   createdAt: string;
   sourceUnit?: {
     id: number;

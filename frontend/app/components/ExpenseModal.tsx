@@ -1,20 +1,33 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  X, 
-  UploadCloud, 
-  ShieldCheck, 
-  Camera, 
-  Sparkles, 
-  CheckCircle2, 
-  Building2, 
-  RefreshCw, 
-  FileCheck,
-  AlertCircle 
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Upload,
+  Button,
+  Alert,
+  Typography,
+  Flex,
+  Card,
+  Space,
+  App,
+} from 'antd';
+import {
+  UploadOutlined,
+  ScanOutlined,
+  CheckCircleOutlined,
+  SafetyCertificateOutlined,
+  FileImageOutlined,
+} from '@ant-design/icons';
 import { expenseApi } from '../apis/expenseApi';
 import { unitApi } from '../apis/unitApi';
+import { formatVND } from '../lib/format';
+
+const { Text, Paragraph } = Typography;
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -23,13 +36,13 @@ interface ExpenseModalProps {
   defaultUnitId?: number;
   onSubmit?: (data: {
     amount: number;
-    category: 'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm' | string;
+    category: string;
     purpose: string;
     unitId?: number;
     taxCode?: string;
     vendorName?: string;
     receiptUrl?: string;
-  }) => void;
+  }) => Promise<any> | void;
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -39,424 +52,292 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   defaultUnitId,
   onSubmit,
 }) => {
-  const [amount, setAmount] = useState<string>('');
-  const [category, setCategory] = useState<'Ăn uống' | 'Đi lại' | 'Mua sắm' | 'Phần mềm' | string>('Ăn uống');
-  const [purpose, setPurpose] = useState<string>('');
-  const [selectedUnitId, setSelectedUnitId] = useState<number | undefined>(defaultUnitId);
-  const [availableUnits, setAvailableUnits] = useState<{ id: number; name: string; isLeaf?: boolean }[]>(units || []);
+  const { message } = App.useApp();
+  const [form] = Form.useForm();
+  const [availableUnits, setAvailableUnits] = useState<{ id: number; name: string }[]>(units || []);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [scanStatusText, setScanStatusText] = useState<string>('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatusText, setScanStatusText] = useState('');
   const [scanError, setScanError] = useState<string | null>(null);
-  
-  // Thông tin sau khi bóc tách & tra cứu mã số thuế thật
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [taxData, setTaxData] = useState<{
     taxCode: string;
     companyName: string;
-    address?: string;
     isValid: boolean;
   } | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      form.resetFields();
+      setImagePreview(null);
+      setTaxData(null);
+      setScanError(null);
+      return;
+    }
+
     if (units && units.length > 0) {
       setAvailableUnits(units);
-      if (!selectedUnitId) setSelectedUnitId(defaultUnitId || units[0].id);
+      form.setFieldsValue({
+        unitId: defaultUnitId || units[0].id,
+        category: 'Ăn uống',
+      });
     } else {
-      unitApi.getUnitTree().then((res: any) => {
-        const raw = res.data;
-        const list = Array.isArray(raw) ? raw : (raw?.flat || []);
-        setAvailableUnits(list);
-        if (!selectedUnitId && list.length > 0) {
-          setSelectedUnitId(defaultUnitId || list[0].id);
-        }
-      }).catch(() => {});
+      unitApi
+        .getUnitTree()
+        .then((res: any) => {
+          const raw = res.data;
+          const list = Array.isArray(raw) ? raw : raw?.flat || [];
+          setAvailableUnits(list);
+          if (list.length > 0) {
+            form.setFieldsValue({
+              unitId: defaultUnitId || list[0].id,
+              category: 'Ăn uống',
+            });
+          }
+        })
+        .catch(() => {});
     }
-  }, [units, defaultUnitId, isOpen]);
+  }, [isOpen, units, defaultUnitId, form]);
 
-  if (!isOpen) return null;
-
-  // Xử lý quét AI từ file ảnh thật thông qua Backend
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset kết quả cũ
+  const handleUploadChange = async (file: File) => {
     setScanError(null);
     setTaxData(null);
-    setAmount('');
-    setPurpose('');
 
-    // Tạo preview URL
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
     setIsScanning(true);
-    setScanStatusText('Đang xử lý...');
+    setScanStatusText('Đang nạp ảnh hóa đơn và bóc tách AI OCR...');
 
     try {
       const reader = new FileReader();
+      reader.readAsDataURL(file);
       reader.onload = async () => {
         try {
           const base64Data = (reader.result as string).split(',')[1];
-          const mimeType = file.type || 'image/jpeg';
+          const scanRes = await expenseApi.scanInvoice({ imageBase64: base64Data, mimeType: file.type });
 
-          const resJson = await expenseApi.scanInvoice({
-            imageBase64: base64Data,
-            mimeType,
-          });
-
-          const parsed = resJson.data || {};
-
-          // Cập nhật số tiền và thông tin bóc tách THẬT
-          if (parsed.amount) {
-            setAmount(String(parsed.amount));
-          }
-          if (parsed.category) {
-            setCategory(parsed.category);
-          }
-          if (parsed.purpose) {
-            setPurpose(parsed.purpose);
-          }
-
-          // Cập nhật thông tin công ty / MST thật
-          if (parsed.verifiedCompany && parsed.verifiedCompany.taxCode) {
-            setTaxData({
-              taxCode: parsed.verifiedCompany.taxCode,
-              companyName: parsed.verifiedCompany.name || parsed.vendorName || 'Đơn vị kinh doanh',
-              address: parsed.verifiedCompany.address || '',
-              isValid: true,
+          if (scanRes.success && scanRes.data) {
+            const parsed = scanRes.data;
+            form.setFieldsValue({
+              amount: parsed.totalAmount ? Number(parsed.totalAmount) : undefined,
+              purpose: parsed.purpose || parsed.vendorName ? `Thanh toán ${parsed.vendorName || ''}` : '',
+              category: parsed.suggestedCategory || 'Ăn uống',
+              taxCode: parsed.taxCode || '',
+              vendorName: parsed.vendorName || '',
             });
-          } else if (parsed.taxCode) {
-            setTaxData({
-              taxCode: parsed.taxCode,
-              companyName: parsed.vendorName || 'Đơn vị kinh doanh',
-              isValid: true,
-            });
-          } else if (parsed.vendorName) {
-            setTaxData({
-              taxCode: 'Không có MST',
-              companyName: parsed.vendorName,
-              isValid: false,
-            });
+
+            if (parsed.taxCode) {
+              setTaxData({
+                taxCode: parsed.taxCode,
+                companyName: parsed.vendorName || 'Đơn vị bán hàng',
+                isValid: true,
+              });
+            }
+            message.success('AI đã bóc tách thông tin hóa đơn thành công!');
           }
         } catch (err: any) {
-          console.error('[OCR Error]', err);
-          if (err.name === 'TypeError' && err.message.includes('fetch')) {
-            setScanError('Không thể kết nối đến máy chủ Backend (Port 5000). Vui lòng đảm bảo server backend đang chạy (cd backend && npm run dev)!');
-          } else {
-            setScanError(err.message || 'Lỗi bóc tách hóa đơn');
-          }
+          setScanError('Không thể bóc tách tự động: ' + (err.message || 'Lỗi xử lý ảnh'));
         } finally {
           setIsScanning(false);
         }
       };
-      reader.readAsDataURL(file);
     } catch (err: any) {
-      setScanError(err.message || 'Không thể đọc file ảnh');
+      setScanError('Lỗi đọc tệp: ' + err.message);
       setIsScanning(false);
     }
+    return false;
   };
 
-  // Submit form
-  const handleSubmitForm = () => {
-    const parsedAmount = parseInt(amount.replace(/[^0-9]/g, ''), 10) || 0;
-    if (parsedAmount <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ!');
-      return;
+  const handleFinish = async (values: any) => {
+    try {
+      setIsSubmitting(true);
+      if (onSubmit) {
+        await onSubmit({
+          amount: Number(values.amount),
+          category: values.category,
+          purpose: values.purpose,
+          unitId: values.unitId,
+          taxCode: values.taxCode,
+          vendorName: values.vendorName,
+          receiptUrl: imagePreview || undefined,
+        });
+      }
+      message.success('Nộp đề nghị hoàn ứng thành công!');
+      onClose();
+    } catch (err: any) {
+      message.error(err?.message || 'Có lỗi xảy ra khi nộp hóa đơn');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (onSubmit) {
-      onSubmit({
-        amount: parsedAmount,
-        category,
-        purpose: purpose.trim() || 'Chi tiêu công tác',
-        unitId: selectedUnitId,
-        taxCode: taxData?.taxCode,
-        vendorName: taxData?.companyName,
-        receiptUrl: imagePreview || undefined,
-      });
-    }
-    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-950/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200 text-zinc-900 dark:text-zinc-100">
-        
-        {/* Modal Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/70 dark:bg-zinc-850/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-            </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                Nộp hóa đơn & Bóc tách
-                <span className="text-[10px] sm:text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  Tự động OCR
-                </span>
-              </h2>
-              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">Hệ thống tự động đọc số tiền & thông tin đơn vị</p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Modal
+      title={
+        <Flex align="center" gap="small">
+          <SafetyCertificateOutlined style={{ color: '#2563eb', fontSize: 20 }} />
+          <span>Tạo khoản chi tiêu / Nộp hóa đơn hoàn ứng</span>
+        </Flex>
+      }
+      open={isOpen}
+      onCancel={onClose}
+      footer={null}
+      width={680}
+      destroyOnClose
+    >
+      <div style={{ padding: '12px 0' }}>
+        {/* Khu vực Upload OCR */}
+        <Card
+          bordered
+          style={{
+            background: 'rgba(37, 99, 235, 0.03)',
+            borderColor: 'rgba(37, 99, 235, 0.2)',
+            marginBottom: 20,
+          }}
+        >
+          <Flex vertical align="center" gap="small" style={{ textAlign: 'center' }}>
+            <ScanOutlined style={{ fontSize: 28, color: '#2563eb' }} />
+            <Text strong style={{ fontSize: 14 }}>
+              Bóc tách hóa đơn tự động với AI OCR
+            </Text>
+            <Paragraph type="secondary" style={{ fontSize: 12, margin: 0 }}>
+              Chụp hoặc tải ảnh hóa đơn (JPG, PNG). AI sẽ tự động đọc số tiền, mã số thuế và mục đích chi.
+            </Paragraph>
 
-        {/* Modal Body: 2 Cột */}
-        <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-          
-          {/* CỘT TRÁI: Upload & Scan */}
-          <div className="flex flex-col space-y-3">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                1. Ảnh hóa đơn chứng từ
-              </label>
-            </div>
+            <Upload
+              showUploadList={false}
+              beforeUpload={(file) => {
+                handleUploadChange(file);
+                return false;
+              }}
+              accept="image/*"
+            >
+              <Button icon={<UploadOutlined />} type="dashed" loading={isScanning}>
+                {isScanning ? scanStatusText : 'Chọn ảnh hóa đơn hoặc chụp từ máy'}
+              </Button>
+            </Upload>
 
-            {/* Thông báo lỗi nếu có */}
-            {scanError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <span>{scanError}</span>
-              </div>
+            {imagePreview && (
+              <Flex align="center" gap="small" style={{ marginTop: 8 }}>
+                <FileImageOutlined />
+                <Text type="success" style={{ fontSize: 12 }}>
+                  Đã tải tệp hóa đơn
+                </Text>
+              </Flex>
             )}
+          </Flex>
+        </Card>
 
-            {/* Khung Upload & Preview */}
-            <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl bg-zinc-50/60 dark:bg-zinc-800/40 overflow-hidden flex flex-col items-center justify-center min-h-[220px] p-4 text-center group transition-all hover:border-zinc-300 dark:hover:border-zinc-600">
-              {imagePreview ? (
-                <div className="relative w-full h-full flex flex-col items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={imagePreview} 
-                    alt="Receipt preview" 
-                    className="max-h-48 w-auto rounded-lg object-contain shadow-sm border border-zinc-200 dark:border-zinc-700"
-                  />
-                  
-                  {/* Laser scan line animation khi đang quét */}
-                  {isScanning && (
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/20 to-transparent flex items-center justify-center animate-pulse">
-                      <div className="w-full h-1 bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)]"></div>
-                    </div>
-                  )}
+        {scanError && (
+          <Alert message={scanError} type="warning" showIcon closable style={{ marginBottom: 16 }} />
+        )}
 
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2.5 py-1 text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-750 cursor-pointer"
-                    >
-                      Đổi ảnh khác
-                    </button>
-                    {taxData && !isScanning && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Bóc tách hoàn tất
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-3">
-                  <div className="w-12 h-12 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-sm flex items-center justify-center mb-2.5 text-zinc-700 dark:text-zinc-300 group-hover:scale-105 transition-transform">
-                    <UploadCloud className="w-6 h-6 text-zinc-600 dark:text-zinc-400" />
-                  </div>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Tải ảnh hóa đơn lên</p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 mb-3">Hỗ trợ JPG, PNG từ máy tính hoặc điện thoại</p>
-                  
-                  <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center justify-center gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="nv-btn-secondary text-xs py-2.5 px-3.5 flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto"
-                    >
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      Chọn từ máy
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="nv-btn-primary text-xs py-2.5 px-3.5 flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto shadow-sm"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      Chụp bằng điện thoại
-                    </button>
-                  </div>
-                </div>
-              )}
+        {taxData && (
+          <Alert
+            message={
+              <Flex align="center" gap="small">
+                <CheckCircleOutlined style={{ color: '#16a34a' }} />
+                <Text strong>Xác thực hóa đơn: {taxData.companyName} (MST: {taxData.taxCode})</Text>
+              </Flex>
+            }
+            type="success"
+            showIcon={false}
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
-              {/* Status bar quét */}
-              {isScanning && (
-                <div className="absolute inset-x-0 bottom-0 bg-zinc-900/90 text-white text-[11px] py-1.5 px-3 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                  <span>{scanStatusText}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Hidden file inputs */}
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <input 
-              type="file" 
-              ref={cameraInputRef}
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-
-            <div className="flex items-center gap-1.5 pt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-              <span>Dữ liệu xử lý an toàn qua Backend NoteVault.</span>
-            </div>
-          </div>
-
-          {/* CỘT PHẢI: Thông tin bóc tách & Form xác nhận */}
-          <div className="space-y-4 flex flex-col justify-between">
-            <div className="space-y-3.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 block">
-                2. Dữ liệu chi tiêu
-              </label>
-
-              {/* Card thông tin pháp nhân Doanh nghiệp */}
-              {taxData ? (
-                <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5 animate-in fade-in duration-200">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 font-bold text-xs">
-                      <Building2 className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
-                      <span className="line-clamp-1">{taxData.companyName}</span>
-                    </div>
-                    {taxData.isValid && (
-                      <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 px-1.5 py-0.5 rounded uppercase">
-                        Hợp lệ
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                    <span>Mã số thuế: <strong className="font-mono text-emerald-950 dark:text-emerald-200">{taxData.taxCode}</strong></span>
-                    {taxData.address && (
-                      <>
-                        <span>•</span>
-                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 line-clamp-1">{taxData.address}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-800/40 border border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl flex items-center gap-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  <FileCheck className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                  <span>Chọn ảnh bên trái để hệ thống tự động trích xuất thông tin doanh nghiệp & hóa đơn.</span>
-                </div>
-              )}
-
-              {/* Ô nhập số tiền */}
-              <div>
-                <label className="nv-label">Số tiền chi tiêu (VND) *</label>
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    value={amount ? Number(amount).toLocaleString('vi-VN') : ''}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^0-9]/g, '');
-                      setAmount(raw);
-                    }}
-                    placeholder="0"
-                    className="nv-input text-lg font-bold pr-10 text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-800"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-zinc-400 select-none">
-                    ₫
-                  </span>
-                </div>
-              </div>
-              
-              {/* Chọn đơn vị (Unit) */}
-              <div>
-                <label className="nv-label">Đơn vị chi tiêu (Unit) *</label>
-                <select 
-                  value={selectedUnitId || ''}
-                  onChange={(e) => setSelectedUnitId(Number(e.target.value))}
-                  className="nv-input bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer"
-                >
-                  {availableUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} (ID: #{u.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Danh mục */}
-              <div>
-                <label className="nv-label">Danh mục chi tiêu *</label>
-                <select 
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  className="nv-input bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer"
-                >
-                  <option value="Ăn uống">Ăn uống & Tiếp khách</option>
-                  <option value="Đi lại">Đi lại & Công tác</option>
-                  <option value="Mua sắm">Mua sắm thiết bị văn phòng</option>
-                  <option value="Phần mềm">Phần mềm & Bản quyền</option>
-                </select>
-              </div>
-
-              {/* Ghi chú mục đích */}
-              <div>
-                <label className="nv-label">Mục đích / Ghi chú hoàn ứng *</label>
-                <textarea 
-                  rows={2}
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="Ví dụ: Ăn trưa tiếp đối tác khách hàng..."
-                  className="nv-input resize-none bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                />
-              </div>
-            </div>
-
-            {/* Nút Submit trong cột */}
-            <div className="pt-2">
-              <button 
-                type="button"
-                onClick={handleSubmitForm}
-                className="w-full nv-btn-primary py-2.5 flex items-center justify-center gap-2 text-sm shadow-md cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                Gửi yêu cầu duyệt chi ngay
-              </button>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-850/60 flex justify-between items-center text-xs text-zinc-500 dark:text-zinc-400">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>NoteVault FinTech OCR • Zero Trust Security</span>
-          </div>
-          <button 
-            type="button"
-            onClick={onClose}
-            className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium transition-colors cursor-pointer"
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleFinish}
+          requiredMark="optional"
+          size="middle"
+        >
+          <Form.Item
+            label={<Text strong>Số tiền chi tiêu (VND)</Text>}
+            name="amount"
+            rules={[
+              { required: true, message: 'Vui lòng nhập số tiền' },
+              {
+                validator: async (_, val) => {
+                  if (val !== undefined && Number(val) <= 0) {
+                    throw new Error('Số tiền phải lớn hơn 0');
+                  }
+                },
+              },
+            ]}
           >
-            Đóng
-          </button>
-        </div>
+            <InputNumber
+              style={{ width: '100%' }}
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+              placeholder="Ví dụ: 350,000"
+              addonAfter="VND"
+            />
+          </Form.Item>
 
+          <Flex gap="middle" style={{ width: '100%' }}>
+            <Form.Item
+              label={<Text strong>Danh mục chi phí</Text>}
+              name="category"
+              rules={[{ required: true, message: 'Vui lòng chọn danh mục' }]}
+              style={{ flex: 1 }}
+            >
+              <Select
+                options={[
+                  { value: 'Ăn uống', label: 'Ăn uống / Tiếp khách' },
+                  { value: 'Đi lại', label: 'Đi lại / Taxi / Công tác' },
+                  { value: 'Mua sắm', label: 'Văn phòng phẩm / Thiết bị' },
+                  { value: 'Phần mềm', label: 'Phần mềm / Dịch vụ Cloud' },
+                  { value: 'Khác', label: 'Chi phí khác' },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label={<Text strong>Đơn vị / Phòng ban thụ hưởng</Text>}
+              name="unitId"
+              rules={[{ required: true, message: 'Vui lòng chọn đơn vị' }]}
+              style={{ flex: 1 }}
+            >
+              <Select
+                placeholder="Chọn phòng ban chi"
+                options={availableUnits.map((u) => ({
+                  value: u.id,
+                  label: u.name,
+                }))}
+              />
+            </Form.Item>
+          </Flex>
+
+          <Form.Item
+            label={<Text strong>Nội dung / Mục đích chi tiêu</Text>}
+            name="purpose"
+            rules={[{ required: true, message: 'Vui lòng nhập mục đích chi tiêu' }]}
+          >
+            <Input placeholder="Ví dụ: Tiếp khách bàn thảo hợp đồng quý 4..." />
+          </Form.Item>
+
+          <Flex gap="middle" style={{ width: '100%' }}>
+            <Form.Item label={<Text strong>Mã số thuế (nếu có)</Text>} name="taxCode" style={{ flex: 1 }}>
+              <Input placeholder="0101234567" />
+            </Form.Item>
+
+            <Form.Item label={<Text strong>Tên đơn vị bán (nếu có)</Text>} name="vendorName" style={{ flex: 1 }}>
+              <Input placeholder="Công ty TNHH Dịch vụ ABC" />
+            </Form.Item>
+          </Flex>
+
+          <Flex justify="flex-end" gap="small" style={{ marginTop: 24 }}>
+            <Button onClick={onClose} disabled={isSubmitting}>
+              Hủy bỏ
+            </Button>
+            <Button type="primary" htmlType="submit" loading={isSubmitting}>
+              Gửi đề nghị hoàn ứng
+            </Button>
+          </Flex>
+        </Form>
       </div>
-    </div>
+    </Modal>
   );
 };

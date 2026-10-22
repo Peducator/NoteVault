@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { RefreshCw } from 'lucide-react';
+import { Layout, Row, Col, Spin, Flex } from 'antd';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { BudgetStats } from '../components/BudgetStats';
@@ -13,6 +13,8 @@ import { AdminTeamManagement } from '../components/AdminTeamManagement';
 import { useExpenses } from '../hooks/useExpenses';
 import { userApi, UserProfile } from '../apis/userApi';
 import { authApi } from '../apis/authApi';
+
+const { Content } = Layout;
 
 function DashboardContent() {
   const router = useRouter();
@@ -26,17 +28,17 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  const { 
-    expenses, 
-    isFetching, 
-    addExpense, 
-    approveExpense, 
-    isApproving, 
-    rejectExpense, 
-    isRejecting, 
+  const {
+    expenses,
+    isFetching,
+    addExpense,
+    approveExpense,
+    isApproving,
+    rejectExpense,
+    isRejecting,
     payExpense,
     isPaying,
-    refetch 
+    refetch,
   } = useExpenses();
 
   useEffect(() => {
@@ -47,7 +49,6 @@ function DashboardContent() {
     }
   }, [tabParam]);
 
-  // Kiểm tra đăng nhập và nạp thông tin người dùng từ Token JWT
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -63,13 +64,11 @@ function DashboardContent() {
       try {
         const localUser = JSON.parse(storedUserStr);
         setCurrentUser(localUser);
-      } catch (e) {
-        // ignore parse error
-      }
+      } catch (e) {}
     }
 
-    // Lấy profile chính chủ từ Backend
-    userApi.getProfile()
+    userApi
+      .getProfile()
       .then((res) => {
         if (res.success && res.data) {
           const profile = {
@@ -83,7 +82,6 @@ function DashboardContent() {
         }
       })
       .catch(() => {
-        // Nếu có token nhưng backend trả lỗi (ví dụ token hết hạn)
         if (!localStorage.getItem('nv_access_token')) {
           router.replace('/login');
         }
@@ -98,6 +96,7 @@ function DashboardContent() {
       handleLogout();
       return;
     }
+
     setActiveTab(tabId);
     if (tabId === 'overview') {
       router.push('/dashboard');
@@ -117,17 +116,14 @@ function DashboardContent() {
     }
   };
 
-  // Màn hình loading khi kiểm tra token
   if (isLoadingAuth) {
     return (
-      <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 items-center justify-center text-zinc-500 dark:text-zinc-400 text-sm gap-2 transition-colors">
-        <RefreshCw className="w-4 h-4 animate-spin text-zinc-700 dark:text-zinc-300" />
-        <span>Đang tải bảng điều khiển...</span>
-      </div>
+      <Flex justify="center" align="center" style={{ height: '100vh' }}>
+        <Spin size="large" tip="Đang tải bảng điều khiển..." />
+      </Flex>
     );
   }
 
-  // Tính toán số liệu tổng quan
   const pendingReimbursement = expenses
     .filter((e) => e.approvalStatus === 'SUBMITTED' || e.approvalStatus === 'PENDING')
     .reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -145,7 +141,6 @@ function DashboardContent() {
 
   const usagePercent = Math.min(100, Math.round((budget.usedAmount / budget.allowance) * 100));
 
-  // Nhóm danh mục chi tiêu cho biểu đồ
   const dynamicCategories = expenses.reduce((acc: any[], exp) => {
     const catName = exp.category || 'Khác';
     const found = acc.find((c) => c.name === catName);
@@ -177,8 +172,7 @@ function DashboardContent() {
   };
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-zinc-200 dark:selection:bg-zinc-800 transition-colors">
-      {/* Sidebar Navigation */}
+    <Layout style={{ minHeight: '100vh' }}>
       <Sidebar
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -192,9 +186,7 @@ function DashboardContent() {
         userRole={currentUser?.role || 'MEMBER'}
       />
 
-      {/* Khu vực nội dung chính */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
+      <Layout>
         <Header
           title={getPageTitle()}
           isSyncing={isFetching}
@@ -203,13 +195,11 @@ function DashboardContent() {
           onLogout={handleLogout}
         />
 
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <Content style={{ padding: '24px', overflowY: 'auto' }}>
           {activeTab === 'units' || activeTab === 'users' || activeTab === 'team' ? (
             <AdminTeamManagement onRefreshStats={refetch} />
           ) : (
-            <>
-              {/* Thẻ Hạn mức phòng ban */}
+            <Flex vertical gap="large">
               <BudgetStats
                 departmentName={(currentUser as any)?.unit?.name || currentUser?.department || 'Đơn vị'}
                 allowance={budget.allowance}
@@ -218,9 +208,8 @@ function DashboardContent() {
                 approvedReimbursed={budget.approvedReimbursed}
               />
 
-              {/* Grid 12 cột: Table 9 cột + Breakdown 3 cột */}
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                <div className="col-span-1 xl:col-span-9">
+              <Row gutter={[24, 24]}>
+                <Col xs={24} xl={18}>
                   <ExpenseTable
                     expenses={expenses}
                     searchQuery={searchQuery}
@@ -235,21 +224,20 @@ function DashboardContent() {
                     currentUserId={currentUser?.id}
                     currentUserRole={currentUser?.role}
                   />
-                </div>
-                <div className="col-span-1 xl:col-span-3">
+                </Col>
+                <Col xs={24} xl={6}>
                   <CategoryBreakdown
                     categories={dynamicCategories}
                     departmentName={(currentUser as any)?.unit?.name || currentUser?.department || 'Đơn vị'}
                     usagePercent={usagePercent}
                   />
-                </div>
-              </div>
-            </>
+                </Col>
+              </Row>
+            </Flex>
           )}
-        </div>
-      </main>
+        </Content>
+      </Layout>
 
-      {/* Modal nộp hóa đơn */}
       <ExpenseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -267,18 +255,19 @@ function DashboardContent() {
           });
         }}
       />
-    </div>
+    </Layout>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 items-center justify-center text-zinc-500 dark:text-zinc-400 text-sm gap-2">
-        <RefreshCw className="w-4 h-4 animate-spin text-zinc-700 dark:text-zinc-300" />
-        <span>Đang nạp ứng dụng...</span>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <Flex justify="center" align="center" style={{ height: '100vh' }}>
+          <Spin size="large" tip="Đang tải dữ liệu..." />
+        </Flex>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );

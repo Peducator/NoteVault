@@ -1,9 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, ChevronDown, Lock, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Form, Input, Select, Button, Alert, Typography, Flex, Card, Row, Col, Space } from 'antd';
+import {
+  BankOutlined,
+  UserOutlined,
+  MailOutlined,
+  LockOutlined,
+  ArrowLeftOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons';
 import { authApi } from '../apis/authApi';
 import { ThemeToggle } from './ThemeToggle';
+
+const { Title, Text, Paragraph } = Typography;
 
 interface CompanyRegisterProps {
   onBackToLanding: () => void;
@@ -16,19 +27,13 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
   onGoToLogin,
   onSubmitSuccess,
 }) => {
-  const [companyName, setCompanyName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [teamSize, setTeamSize] = useState('10 - 50 người');
-  const [adminName, setAdminName] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Tự động tạo slug thân thiện khi nhập tên công ty
-  const handleCompanyNameChange = (val: string) => {
-    setCompanyName(val);
+  const handleCompanyNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
     const generatedSlug = val
       .toLowerCase()
       .trim()
@@ -36,35 +41,31 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    setSlug(generatedSlug);
+    form.setFieldsValue({ slug: generatedSlug });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (values: any) => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
 
     try {
       await authApi.signup({
-        companyName: companyName.trim(),
-        name: adminName.trim(),
-        email: adminEmail.trim(),
-        password,
+        companyName: values.companyName.trim(),
+        name: values.adminName.trim(),
+        email: values.adminEmail.trim(),
+        password: values.password,
       });
 
       setSuccessMessage('Khởi tạo tài khoản doanh nghiệp thành công! Đang chuyển hướng sang đăng nhập...');
 
-      // Lưu lại thông tin công ty và email vừa đăng ký vào localStorage để tiện tự điền ở màn Login
       if (typeof window !== 'undefined') {
-        localStorage.setItem('nv_registered_email', adminEmail.trim());
-        localStorage.setItem('nv_registered_company', companyName.trim());
+        localStorage.setItem('nv_registered_email', values.adminEmail.trim());
+        localStorage.setItem('nv_registered_company', values.companyName.trim());
       }
 
       setTimeout(() => {
-        if (onSubmitSuccess) {
-          onSubmitSuccess();
-        }
+        if (onSubmitSuccess) onSubmitSuccess();
       }, 1500);
     } catch (err: any) {
       if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('Failed to fetch'))) {
@@ -78,194 +79,259 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex font-sans bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-zinc-200 dark:selection:bg-zinc-800 transition-colors">
-      {/* Cột trái: Form đăng ký công ty */}
-      <div className="w-full lg:w-1/2 bg-white dark:bg-zinc-900 flex flex-col justify-center px-8 sm:px-14 lg:px-20 py-12 border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto transition-colors">
-        <div className="max-w-md w-full mx-auto">
-          {/* Logo & Theme Switcher */}
-          <div className="flex items-center justify-between mb-10">
-            <button 
-              type="button"
-              onClick={onBackToLanding}
-              className="flex items-center gap-2 text-left cursor-pointer group"
-            >
-              <div className="w-8 h-8 bg-zinc-900 dark:bg-emerald-600 rounded-lg flex items-center justify-center text-white">
-                <ShieldCheck className="w-5 h-5" />
+    <div style={{ minHeight: '100vh', display: 'flex' }}>
+      <Row style={{ width: '100%', minHeight: '100vh' }}>
+        {/* Cột trái: Form đăng ký */}
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 24px' }}>
+          <div style={{ maxWidth: 480, width: '100%', margin: '0 auto' }}>
+            <Flex justify="space-between" align="center" style={{ marginBottom: 24 }}>
+              <Button
+                type="text"
+                icon={<ArrowLeftOutlined />}
+                onClick={onBackToLanding}
+                style={{ paddingLeft: 0 }}
+              >
+                Trang chủ
+              </Button>
+              <ThemeToggle />
+            </Flex>
+
+            <Flex align="center" gap="small" style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 8,
+                  background: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20,
+                }}
+              >
+                <SafetyCertificateOutlined />
               </div>
-              <span className="font-bold text-lg tracking-tight text-zinc-900 dark:text-white">NoteVault</span>
-            </button>
-            <ThemeToggle />
-          </div>
+              <Title level={3} style={{ margin: 0 }}>
+                NoteVault
+              </Title>
+            </Flex>
 
-          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white mb-2 tracking-tight">
-            Đăng ký doanh nghiệp
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8">
-            Khởi tạo không gian làm việc độc lập cho tổ chức của bạn.
-          </p>
+            <Title level={2} style={{ marginBottom: 6, marginTop: 4 }}>
+              Đăng ký doanh nghiệp
+            </Title>
+            <Paragraph type="secondary" style={{ marginBottom: 24 }}>
+              Khởi tạo không gian làm việc độc lập và kiến trúc đa phân tầng cho tổ chức.
+            </Paragraph>
 
-          {/* Thông báo lỗi nếu có */}
-          {errorMessage && (
-            <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Thông báo thành công nếu có */}
-          {successMessage && (
-            <div className="mb-5 p-3.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="nv-label">Tên công ty *</label>
-              <input 
-                type="text" 
-                required
-                value={companyName}
-                onChange={(e) => handleCompanyNameChange(e.target.value)}
-                placeholder="Ví dụ: VinFast Auto" 
-                className="nv-input" 
+            {errorMessage && (
+              <Alert
+                message={errorMessage}
+                type="error"
+                showIcon
+                closable
+                onClose={() => setErrorMessage(null)}
+                style={{ marginBottom: 16 }}
               />
-            </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="nv-label">Mã định danh (Slug) *</label>
-                <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded-lg focus-within:border-zinc-900 dark:focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-zinc-900 dark:focus-within:ring-emerald-500 transition-all overflow-hidden bg-white dark:bg-zinc-800">
-                  <span className="px-3 py-2 bg-zinc-50 dark:bg-zinc-700/60 text-zinc-500 dark:text-zinc-400 text-sm border-r border-zinc-200 dark:border-zinc-700 select-none font-mono">@</span>
-                  <input 
-                    type="text" 
-                    required
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="vinfast" 
-                    className="w-full px-2.5 py-2 text-sm bg-transparent text-zinc-900 dark:text-zinc-100 focus:outline-none" 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="nv-label">Quy mô nhân sự *</label>
-                <div className="relative">
-                  <select 
-                    value={teamSize}
-                    onChange={(e) => setTeamSize(e.target.value)}
-                    className="nv-input appearance-none bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 pr-8 cursor-pointer"
+            {successMessage && (
+              <Alert
+                message={successMessage}
+                type="success"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              initialValues={{ teamSize: '10 - 50 người' }}
+              requiredMark={false}
+              size="large"
+            >
+              <Form.Item
+                label={<Text strong>Tên công ty / Tập đoàn</Text>}
+                name="companyName"
+                rules={[{ required: true, message: 'Vui lòng nhập tên công ty' }]}
+              >
+                <Input
+                  prefix={<BankOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                  placeholder="Ví dụ: Công ty Công nghệ ABC"
+                  onChange={handleCompanyNameChange}
+                />
+              </Form.Item>
+
+              <Row gutter={16}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    label={<Text strong>Mã định danh (Slug)</Text>}
+                    name="slug"
+                    rules={[{ required: true, message: 'Vui lòng nhập mã định danh' }]}
                   >
-                    <option>10 - 50 người</option>
-                    <option>50 - 200 người</option>
-                    <option>200+ người</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-            </div>
+                    <Input prefix="@" placeholder="abc-corp" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    label={<Text strong>Quy mô nhân sự</Text>}
+                    name="teamSize"
+                  >
+                    <Select
+                      options={[
+                        { value: '10 - 50 người', label: '10 - 50 người' },
+                        { value: '50 - 200 người', label: '50 - 200 người' },
+                        { value: '200+ người', label: '200+ người' },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="nv-label">Họ tên quản trị viên *</label>
-                <input 
-                  type="text" 
-                  required
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
-                  placeholder="Nguyễn Văn A" 
-                  className="nv-input" 
+              <Row gutter={16}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    label={<Text strong>Họ tên quản trị viên</Text>}
+                    name="adminName"
+                    rules={[{ required: true, message: 'Vui lòng nhập họ tên quản trị viên' }]}
+                  >
+                    <Input
+                      prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                      placeholder="Nguyễn Văn A"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    label={<Text strong>Email quản trị</Text>}
+                    name="adminEmail"
+                    rules={[
+                      { required: true, message: 'Vui lòng nhập email quản trị' },
+                      { type: 'email', message: 'Email không hợp lệ' },
+                    ]}
+                  >
+                    <Input
+                      prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                      placeholder="admin@congty.com"
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item
+                label={<Text strong>Mật khẩu khởi tạo</Text>}
+                name="password"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập mật khẩu' },
+                  { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' },
+                ]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                  placeholder="Tối thiểu 6 ký tự"
                 />
-              </div>
-              <div>
-                <label className="nv-label">Email quản trị *</label>
-                <input 
-                  type="email" 
-                  required
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@congty.com" 
-                  className="nv-input" 
-                />
-              </div>
+              </Form.Item>
+
+              <Form.Item style={{ marginTop: 24 }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  block
+                  loading={isLoading}
+                  style={{ height: 44, fontWeight: 600 }}
+                >
+                  Tạo tài khoản doanh nghiệp
+                </Button>
+              </Form.Item>
+            </Form>
+
+            <Paragraph style={{ textAlign: 'center', marginTop: 16 }}>
+              Đã có tài khoản?{' '}
+              <Button type="link" onClick={onGoToLogin} style={{ padding: 0, fontWeight: 600 }}>
+                Đăng nhập ngay
+              </Button>
+            </Paragraph>
+          </div>
+        </Col>
+
+        {/* Cột phải: Enterprise Branding Banner */}
+        <Col
+          xs={0}
+          lg={12}
+          style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: 64,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                fontSize: 12,
+                color: '#38bdf8',
+                marginBottom: 36,
+              }}
+            >
+              <SafetyCertificateOutlined />
+              Bảo mật cấp Doanh nghiệp Multi-Tenant
             </div>
 
-            <div>
-              <label className="nv-label">Mật khẩu *</label>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Tối thiểu 8 ký tự" 
-                className="nv-input" 
-              />
-            </div>
+            <Title level={2} style={{ color: '#fff', lineHeight: 1.3, marginBottom: 16 }}>
+              Cách ly hoàn toàn dữ liệu tài chính & cây ngân sách giữa các công ty.
+            </Title>
+            <Paragraph style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.7, marginBottom: 40 }}>
+              Mỗi tổ chức sở hữu một không gian độc lập, phân quyền chặt chẽ từ nhân viên nộp hóa đơn, trưởng phòng duyệt chi đến ban giám đốc cấp hạn mức.
+            </Paragraph>
 
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="nv-btn-primary w-full py-3 mt-2 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-sm transition-all"
+            <Card
+              bordered={false}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 12,
+              }}
             >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  Đang khởi tạo doanh nghiệp...
-                </>
-              ) : (
-                'Tạo tài khoản doanh nghiệp'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-zinc-600 dark:text-zinc-400 mt-6">
-            Đã có tài khoản?{' '}
-            <button 
-              type="button"
-              onClick={onGoToLogin} 
-              className="font-semibold text-zinc-900 dark:text-white hover:underline cursor-pointer"
-            >
-              Đăng nhập ngay
-            </button>
-          </p>
-        </div>
-      </div>
-
-      {/* Cột phải: Branding & Chứng chỉ bảo mật (Clean Dark) */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 text-white flex-col justify-between p-14 relative">
-        <div className="max-w-md">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 mb-8">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            Bảo mật cấp doanh nghiệp
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Không gian lưu trữ hóa đơn S3</Text>
+                  <Text strong style={{ color: '#4ade80' }}>
+                    <CheckCircleOutlined /> Cách ly tenant 100%
+                  </Text>
+                </Flex>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Ngăn ngừa chi vượt ngân sách</Text>
+                  <Text strong style={{ color: '#4ade80' }}>
+                    <CheckCircleOutlined /> Khóa phân tầng tự động
+                  </Text>
+                </Flex>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Nhật ký kiểm toán (Audit Trail)</Text>
+                  <Text strong style={{ color: '#38bdf8' }}>
+                    Lưu trữ minh bạch trọn đời
+                  </Text>
+                </Flex>
+              </Space>
+            </Card>
           </div>
 
-          <h2 className="text-3xl font-bold leading-tight mb-4">
-            Cách ly dữ liệu tài chính hoàn toàn giữa các doanh nghiệp.
-          </h2>
-          <p className="text-slate-400 text-sm leading-relaxed mb-8">
-            Mỗi công ty sở hữu một không gian độc lập, phân quyền chặt chẽ từ nhân viên nộp hóa đơn đến kế toán trưởng duyệt chi.
-          </p>
-
-          <div className="space-y-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Không gian lưu trữ</span>
-              <span className="font-semibold text-emerald-400">Cách ly độc lập 100%</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Kiểm tra mã độc</span>
-              <span className="font-semibold text-emerald-400">Tự động quét tệp an toàn</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Bảo mật giao dịch</span>
-              <span className="font-semibold text-slate-200">Ký số & Audit Trail</span>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-500">
-          © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
-        </p>
-      </div>
+          <Text style={{ color: '#64748b', fontSize: 12 }}>
+            © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
+          </Text>
+        </Col>
+      </Row>
     </div>
   );
 };

@@ -1,9 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, AlertCircle, RefreshCw } from 'lucide-react';
+import { Form, Input, Button, Alert, Typography, Flex, Card, Row, Col, Space } from 'antd';
+import {
+  MailOutlined,
+  LockOutlined,
+  SafetyCertificateOutlined,
+  ArrowLeftOutlined,
+  CheckCircleOutlined,
+} from '@ant-design/icons';
 import { authApi } from '../apis/authApi';
 import { ThemeToggle } from './ThemeToggle';
+
+const { Title, Text, Paragraph } = Typography;
 
 interface LoginFormProps {
   onBackToLanding: () => void;
@@ -16,34 +25,29 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   onGoToRegister,
   onSubmitSuccess,
 }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Điền email nếu vừa đăng ký
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedEmail = localStorage.getItem('nv_registered_email');
       if (savedEmail) {
-        setEmail(savedEmail);
-        setPassword('');
+        form.setFieldsValue({ email: savedEmail });
       }
     }
-  }, []);
+  }, [form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (values: any) => {
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
       const result = await authApi.login({
-        email: email.trim(),
-        password,
+        email: values.email.trim(),
+        password: values.password,
       });
 
-      // Lưu tokens vào localStorage
       if (typeof window !== 'undefined' && result.data) {
         localStorage.setItem('nv_access_token', result.data.accessToken || '');
         localStorage.setItem('nv_refresh_token', result.data.refreshToken || '');
@@ -65,136 +69,196 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-zinc-950 font-sans selection:bg-slate-200 dark:selection:bg-zinc-800 transition-colors">
-      {/* Cột trái: Form đăng nhập (Center card sang trọng) */}
-      <div className="w-full lg:w-1/2 bg-white dark:bg-zinc-900 flex flex-col justify-center px-8 sm:px-14 lg:px-20 py-12 border-r border-slate-200 dark:border-zinc-800 transition-colors">
-        <div className="max-w-md w-full mx-auto">
-          {/* Logo & Theme Switcher */}
-          <div className="flex items-center justify-between mb-10">
-            <button 
-              type="button"
-              onClick={onBackToLanding}
-              className="flex items-center gap-2 text-left cursor-pointer group"
-            >
-              <div className="w-8 h-8 bg-slate-900 dark:bg-emerald-600 rounded-lg flex items-center justify-center text-white">
-                <ShieldCheck className="w-5 h-5" />
+    <div style={{ minHeight: '100vh', display: 'flex' }}>
+      <Row style={{ width: '100%', minHeight: '100vh' }}>
+        {/* Cột trái: Form đăng nhập */}
+        <Col xs={24} lg={12} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 24px' }}>
+          <div style={{ maxWidth: 440, width: '100%', margin: '0 auto' }}>
+            <Flex justify="space-between" align="center" style={{ marginBottom: 32 }}>
+              <Button
+                type="text"
+                icon={<ArrowLeftOutlined />}
+                onClick={onBackToLanding}
+                style={{ paddingLeft: 0 }}
+              >
+                Trang chủ
+              </Button>
+              <ThemeToggle />
+            </Flex>
+
+            <Flex align="center" gap="small" style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 8,
+                  background: '#2563eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20,
+                }}
+              >
+                <SafetyCertificateOutlined />
               </div>
-              <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">NoteVault</span>
-            </button>
-            <ThemeToggle />
-          </div>
+              <Title level={3} style={{ margin: 0 }}>
+                NoteVault
+              </Title>
+            </Flex>
 
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">
-            Đăng nhập hệ thống
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 mb-8">
-            Truy cập không gian làm việc để quản lý chi tiêu và duyệt chứng từ.
-          </p>
+            <Title level={2} style={{ marginBottom: 8, marginTop: 8 }}>
+              Đăng nhập hệ thống
+            </Title>
+            <Paragraph type="secondary" style={{ marginBottom: 28 }}>
+              Truy cập không gian làm việc để quản trị ngân sách và duyệt chứng từ tài chính.
+            </Paragraph>
 
-          {/* Thông báo lỗi nếu có */}
-          {errorMessage && (
-            <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Email */}
-            <div>
-              <label className="nv-label">Email công việc *</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@congty-a.vn hoặc email của bạn" 
-                className="nv-input" 
+            {errorMessage && (
+              <Alert
+                message={errorMessage}
+                type="error"
+                showIcon
+                closable
+                onClose={() => setErrorMessage(null)}
+                style={{ marginBottom: 20 }}
               />
+            )}
+
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              requiredMark={false}
+              size="large"
+            >
+              <Form.Item
+                label={<Text strong>Email công việc</Text>}
+                name="email"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập email công việc' },
+                  { type: 'email', message: 'Địa chỉ email không hợp lệ' },
+                ]}
+              >
+                <Input
+                  prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                  placeholder="admin@abc.test hoặc email của bạn"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={
+                  <Flex justify="space-between" style={{ width: '100%' }}>
+                    <Text strong>Mật khẩu</Text>
+                  </Flex>
+                }
+                name="password"
+                rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                  placeholder="Mật khẩu của bạn"
+                />
+              </Form.Item>
+
+              <Form.Item style={{ marginTop: 24 }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  block
+                  loading={isLoading}
+                  style={{ height: 44, fontWeight: 600 }}
+                >
+                  Đăng nhập vào không gian làm việc
+                </Button>
+              </Form.Item>
+            </Form>
+
+            <Paragraph style={{ textAlign: 'center', marginTop: 20 }}>
+              Doanh nghiệp chưa tham gia?{' '}
+              <Button type="link" onClick={onGoToRegister} style={{ padding: 0, fontWeight: 600 }}>
+                Đăng ký doanh nghiệp mới
+              </Button>
+            </Paragraph>
+          </div>
+        </Col>
+
+        {/* Cột phải: Enterprise Branding Banner */}
+        <Col
+          xs={0}
+          lg={12}
+          style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            color: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: 64,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                fontSize: 12,
+                color: '#38bdf8',
+                marginBottom: 36,
+              }}
+            >
+              <SafetyCertificateOutlined />
+              Kiến trúc Zero Trust B2B FinTech
             </div>
 
-            {/* Mật khẩu */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="nv-label mb-0">Mật khẩu *</label>
-                <a href="#" className="text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors">
-                  Quên mật khẩu?
-                </a>
-              </div>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••" 
-                className="nv-input" 
-              />
-            </div>
+            <Title level={2} style={{ color: '#fff', lineHeight: 1.3, marginBottom: 16 }}>
+              Quản trị minh bạch & Kiểm soát thời gian thực mọi dòng tiền doanh nghiệp.
+            </Title>
+            <Paragraph style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.7, marginBottom: 40 }}>
+              NoteVault số hóa toàn diện quy trình cấp phát ngân sách phân tầng, bóc tách hóa đơn tự động bằng AI và đối soát an toàn tuyệt đối.
+            </Paragraph>
 
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="nv-btn-primary w-full py-3 mt-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-sm transition-all"
+            <Card
+              bordered={false}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 12,
+              }}
             >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  Đang xác thực tài khoản...
-                </>
-              ) : (
-                'Đăng nhập vào không gian làm việc'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-slate-600 dark:text-zinc-400 mt-6">
-            Doanh nghiệp chưa tham gia?{' '}
-            <button 
-              type="button"
-              onClick={onGoToRegister} 
-              className="font-semibold text-slate-900 dark:text-zinc-100 hover:underline cursor-pointer"
-            >
-              Đăng ký doanh nghiệp
-            </button>
-          </p>
-        </div>
-      </div>
-
-      {/* Cột phải: Branding Enterprise Clean */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 text-white flex-col justify-between p-14 relative">
-        <div className="max-w-md">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 mb-8">
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            Kiến trúc Zero Trust B2B FinTech
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Thời gian duyệt ngân sách</Text>
+                  <Text strong style={{ color: '#4ade80' }}>
+                    <CheckCircleOutlined /> Giảm 75% so với thủ công
+                  </Text>
+                </Flex>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Tỉ lệ bảo đảm số dư an toàn</Text>
+                  <Text strong style={{ color: '#4ade80' }}>
+                    <CheckCircleOutlined /> 100% không bao giờ âm quỹ
+                  </Text>
+                </Flex>
+                <Flex justify="space-between" align="center">
+                  <Text style={{ color: '#94a3b8' }}>Bóc tách OCR AI Hóa đơn</Text>
+                  <Text strong style={{ color: '#38bdf8' }}>
+                    Chính xác 99.8%
+                  </Text>
+                </Flex>
+              </Space>
+            </Card>
           </div>
 
-          <h2 className="text-3xl font-bold leading-tight mb-4">
-            Quản trị minh bạch mọi dòng tiền doanh nghiệp.
-          </h2>
-          <p className="text-slate-400 text-sm leading-relaxed mb-8">
-            NoteVault số hóa toàn diện quy trình hoàn ứng: bóc tách hóa đơn tự động bằng AI, phát hiện gian lận và đồng bộ tức thì vào sổ kế toán.
-          </p>
-
-          <div className="space-y-3 bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-xs">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Thời gian duyệt đơn</span>
-              <span className="font-semibold text-emerald-400">Giảm 75% so với thủ công</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Tỷ lệ sai sót số liệu</span>
-              <span className="font-semibold text-emerald-400">Dưới 0.1%</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Tuân thủ thuế GTGT</span>
-              <span className="font-semibold text-slate-200">100% hóa đơn hợp lệ</span>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-500">
-          © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
-        </p>
-      </div>
+          <Text style={{ color: '#64748b', fontSize: 12 }}>
+            © 2026 NoteVault Technologies Inc. Bảo lưu mọi quyền.
+          </Text>
+        </Col>
+      </Row>
     </div>
   );
 };

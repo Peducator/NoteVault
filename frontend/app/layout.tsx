@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AntdRegistry } from "@ant-design/nextjs-registry";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -9,7 +10,7 @@ export const viewport = {
 
 export const metadata: Metadata = {
   title: "NoteVault - Quản lý Chi tiêu Doanh nghiệp",
-  description: "Hệ thống quản lý chi tiêu và đối soát hóa đơn tự động",
+  description: "Hệ thống quản lý ngân sách và đối soát hóa đơn tự động cho doanh nghiệp",
 };
 
 export default function RootLayout({
@@ -18,9 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className="h-full antialiased" suppressHydrationWarning>
-      <body className="min-h-full flex flex-col font-sans">
-        <Providers>{children}</Providers>
+    <html lang="vi" suppressHydrationWarning>
+      <body>
+        <AntdRegistry>
+          <Providers>{children}</Providers>
+        </AntdRegistry>
       </body>
     </html>
   );
