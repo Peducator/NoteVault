@@ -11,6 +11,10 @@ export interface NewExpensePayload {
   unitId?: number;
   taxCode?: string;
   vendorName?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  vatAmount?: number;
+  vatRate?: string;
   receiptUrl?: string;
 }
 
@@ -128,12 +132,20 @@ export function useExpenses() {
 
       // Gửi lên backend nếu có token
       if (token) {
+        const noteParts = [
+          payload.purpose,
+          payload.vendorName ? `[Đơn vị bán: ${payload.vendorName}]` : '',
+          payload.invoiceNumber ? `[Số HĐ: ${payload.invoiceNumber}]` : '',
+          payload.taxCode ? `[MST: ${payload.taxCode}]` : '',
+          payload.vatAmount ? `[VAT: ${payload.vatAmount.toLocaleString('vi-VN')} đ]` : '',
+        ].filter(Boolean).join(' • ');
+
         const res = await expenseApi.createTransaction({
           amount: payload.amount,
           categoryId: 1, // Fallback default category
           unitId: payload.unitId,
-          note: payload.purpose,
-          transactionDate: new Date().toISOString(),
+          note: noteParts,
+          transactionDate: payload.invoiceDate ? new Date(payload.invoiceDate).toISOString() : new Date().toISOString(),
           scanStatus: 'CLEAN',
           taxCode: payload.taxCode,
           vendorName: payload.vendorName,
@@ -147,7 +159,7 @@ export function useExpenses() {
             user: currentUser.fullName || currentUser.name || 'Người dùng',
             purpose: createdTx.note,
             category: payload.category || 'Chi phí',
-            date: new Date().toISOString().split('T')[0],
+            date: payload.invoiceDate || new Date().toISOString().split('T')[0],
             amount: Number(createdTx.amount),
             scanStatus: 'CLEAN' as const,
             approvalStatus: createdTx.status as any,

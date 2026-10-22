@@ -7,6 +7,7 @@ import {
   Input,
   InputNumber,
   Select,
+  DatePicker,
   Upload,
   Button,
   Alert,
@@ -23,6 +24,7 @@ import {
   SafetyCertificateOutlined,
   FileImageOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { expenseApi } from '../apis/expenseApi';
 import { unitApi } from '../apis/unitApi';
 import { formatVND } from '../lib/format';
@@ -41,6 +43,9 @@ interface ExpenseModalProps {
     unitId?: number;
     taxCode?: string;
     vendorName?: string;
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    vatAmount?: number;
     receiptUrl?: string;
   }) => Promise<any> | void;
 }
@@ -81,6 +86,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       form.setFieldsValue({
         unitId: defaultUnitId || units[0].id,
         category: 'Ăn uống',
+        invoiceDate: dayjs(),
       });
     } else {
       unitApi
@@ -93,6 +99,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             form.setFieldsValue({
               unitId: defaultUnitId || list[0].id,
               category: 'Ăn uống',
+              invoiceDate: dayjs(),
             });
           }
         })
@@ -124,13 +131,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               : (parsed.totalAmount ? Number(parsed.totalAmount) : undefined);
             const detectedCategory = parsed.category || parsed.suggestedCategory || 'Ăn uống';
             const detectedPurpose = parsed.purpose || (parsed.vendorName ? `Thanh toán ${parsed.vendorName}` : '');
+            const detectedDate = parsed.date ? dayjs(parsed.date) : dayjs();
 
             form.setFieldsValue({
               amount: detectedAmount,
               purpose: detectedPurpose,
               category: detectedCategory,
+              invoiceDate: detectedDate,
+              invoiceNumber: parsed.invoiceNumber || '',
               taxCode: parsed.taxCode || '',
               vendorName: parsed.vendorName || '',
+              vatAmount: parsed.vatAmount ? Number(parsed.vatAmount) : undefined,
             });
 
             if (parsed.taxCode) {
@@ -166,6 +177,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           unitId: values.unitId,
           taxCode: values.taxCode,
           vendorName: values.vendorName,
+          invoiceNumber: values.invoiceNumber,
+          invoiceDate: values.invoiceDate ? values.invoiceDate.format('YYYY-MM-DD') : undefined,
+          vatAmount: values.vatAmount ? Number(values.vatAmount) : undefined,
           receiptUrl: imagePreview || undefined,
         });
       }
@@ -259,29 +273,47 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           requiredMark="optional"
           size="middle"
         >
-          <Form.Item
-            label={<Text strong>Số tiền chi tiêu (VND)</Text>}
-            name="amount"
-            rules={[
-              { required: true, message: 'Vui lòng nhập số tiền' },
-              {
-                validator: async (_, val) => {
-                  if (val !== undefined && Number(val) <= 0) {
-                    throw new Error('Số tiền phải lớn hơn 0');
-                  }
+          {/* Hàng 1: Số tiền chi tiêu & Ngày lập hóa đơn */}
+          <Flex gap="middle" style={{ width: '100%' }}>
+            <Form.Item
+              label={<Text strong>Số tiền chi tiêu (VND)</Text>}
+              name="amount"
+              rules={[
+                { required: true, message: 'Vui lòng nhập số tiền' },
+                {
+                  validator: async (_, val) => {
+                    if (val !== undefined && Number(val) <= 0) {
+                      throw new Error('Số tiền phải lớn hơn 0');
+                    }
+                  },
                 },
-              },
-            ]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
-              placeholder="Ví dụ: 350,000"
-              suffix="VND"
-            />
-          </Form.Item>
+              ]}
+              style={{ flex: 1 }}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+                placeholder="Ví dụ: 4,221,000"
+                suffix="VND"
+              />
+            </Form.Item>
 
+            <Form.Item
+              label={<Text strong>Ngày lập hóa đơn / Ngày chi</Text>}
+              name="invoiceDate"
+              rules={[{ required: true, message: 'Vui lòng chọn ngày lập hóa đơn' }]}
+              style={{ flex: 1 }}
+            >
+              <DatePicker
+                style={{ width: '100%' }}
+                format="YYYY-MM-DD"
+                placeholder="Chọn ngày lập"
+              />
+            </Form.Item>
+          </Flex>
+
+          {/* Hàng 2: Danh mục chi phí & Đơn vị thụ hưởng */}
           <Flex gap="middle" style={{ width: '100%' }}>
             <Form.Item
               label={<Text strong>Danh mục chi phí</Text>}
@@ -293,7 +325,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 options={[
                   { value: 'Ăn uống', label: 'Ăn uống / Tiếp khách' },
                   { value: 'Đi lại', label: 'Đi lại / Taxi / Công tác' },
-                  { value: 'Mua sắm', label: 'Văn phòng phẩm / Thiết bị' },
+                  { value: 'Mua sắm', label: 'Mua sắm / Văn phòng phẩm / Thiết bị' },
                   { value: 'Phần mềm', label: 'Phần mềm / Dịch vụ Cloud' },
                   { value: 'Khác', label: 'Chi phí khác' },
                 ]}
@@ -316,21 +348,56 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </Form.Item>
           </Flex>
 
+          {/* Hàng 3: Nội dung / Mục đích chi tiêu */}
           <Form.Item
             label={<Text strong>Nội dung / Mục đích chi tiêu</Text>}
             name="purpose"
             rules={[{ required: true, message: 'Vui lòng nhập mục đích chi tiêu' }]}
           >
-            <Input placeholder="Ví dụ: Tiếp khách bàn thảo hợp đồng quý 4..." />
+            <Input placeholder="Ví dụ: Mua bàn ủi hơi nước đứng Philips..." />
           </Form.Item>
 
+          {/* Hàng 4: Tên đơn vị bán & Số hóa đơn */}
           <Flex gap="middle" style={{ width: '100%' }}>
-            <Form.Item label={<Text strong>Mã số thuế (nếu có)</Text>} name="taxCode" style={{ flex: 1 }}>
+            <Form.Item
+              label={<Text strong>Tên đơn vị bán (nếu có)</Text>}
+              name="vendorName"
+              style={{ flex: 1 }}
+            >
+              <Input placeholder="Ví dụ: Siêu thị Điện máy Chợ Lớn" />
+            </Form.Item>
+
+            <Form.Item
+              label={<Text strong>Số hóa đơn / Số biên nhận (nếu có)</Text>}
+              name="invoiceNumber"
+              style={{ flex: 1 }}
+            >
+              <Input placeholder="Ví dụ: H190005/21-Q001, 1149405..." />
+            </Form.Item>
+          </Flex>
+
+          {/* Hàng 5: Mã số thuế & Tiền thuế VAT */}
+          <Flex gap="middle" style={{ width: '100%' }}>
+            <Form.Item
+              label={<Text strong>Mã số thuế người bán (nếu có)</Text>}
+              name="taxCode"
+              style={{ flex: 1 }}
+            >
               <Input placeholder="0101234567" />
             </Form.Item>
 
-            <Form.Item label={<Text strong>Tên đơn vị bán (nếu có)</Text>} name="vendorName" style={{ flex: 1 }}>
-              <Input placeholder="Công ty TNHH Dịch vụ ABC" />
+            <Form.Item
+              label={<Text strong>Tiền thuế VAT (nếu có)</Text>}
+              name="vatAmount"
+              style={{ flex: 1 }}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+                placeholder="Tiền thuế VAT (VND)"
+                suffix="VND"
+              />
             </Form.Item>
           </Flex>
 

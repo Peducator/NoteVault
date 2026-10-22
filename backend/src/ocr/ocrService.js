@@ -3,16 +3,17 @@ const config = require('../config/env');
 const GEMINI_SYSTEM_PROMPT = `Bạn là chuyên gia AI FinTech kiêm Kế toán trưởng chuyên trách bóc tách, chuẩn hóa dữ liệu hóa đơn và chứng từ thanh toán tại Việt Nam.
 Hãy phân tích hình ảnh chứng từ và trích xuất dữ liệu, CHỈ TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ (không kèm bất kỳ văn bản giải thích hay khối markdown \`\`\`json\`\`\` nào):
 {
+  "invoiceNumber": "Số hóa đơn hoặc số phiếu biên nhận nếu có (ví dụ: H190005/21-Q001, 1149405, HD-001...), nếu không có để null",
   "taxCode": "Mã số thuế người bán (10 hoặc 13 chữ số, nếu không có để null)",
   "buyerTaxCode": "Mã số thuế người mua nếu có, hoặc null",
   "vendorName": "Tên quán hoặc tên công ty bán",
   "amount": số tiền tổng thanh toán cuối cùng bằng số nguyên (ví dụ 350000, không có ký tự lạ),
   "vatAmount": tiền thuế VAT nếu có (số nguyên) hoặc null,
   "vatRate": "thuế suất VAT (8%, 10%...) hoặc null",
-  "category": "chọn 1 trong 4 danh mục chuẩn: Ăn uống, Đi lại, Mua sắm, Phần mềm",
-  "purpose": "tóm tắt ngắn gọn mục đích chi tiêu (dưới 15 từ)",
-  "date": "YYYY-MM-DD",
-  "isVatInvoice": true nếu là hóa đơn GTGT chính thức có ký hiệu/số hóa đơn, false nếu là bill nhiệt
+  "category": "chọn 1 trong 5 danh mục: Ăn uống, Đi lại, Mua sắm, Phần mềm, Khác",
+  "purpose": "tóm tắt ngắn gọn mục đích chi tiêu hoặc tên hàng hóa dịch vụ chính (dưới 15 từ)",
+  "date": "ngày lập hóa đơn định dạng YYYY-MM-DD (ví dụ 2025-08-03, nếu không có thì null)",
+  "isVatInvoice": true nếu là hóa đơn GTGT chính thức có ký hiệu/số hóa đơn, false nếu là bill nhiệt hoặc phiếu biên nhận
 }`;
 
 /**
@@ -130,10 +131,23 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
     }
   }
 
+  // Chuẩn hóa vatAmount nếu có
+  if (parsed.vatAmount !== undefined && parsed.vatAmount !== null) {
+    if (typeof parsed.vatAmount === 'string') {
+      const cleanVat = parsed.vatAmount.replace(/[^0-9]/g, '');
+      parsed.vatAmount = cleanVat ? parseInt(cleanVat, 10) : null;
+    } else {
+      parsed.vatAmount = Math.round(Number(parsed.vatAmount) || 0);
+    }
+  }
+
   return {
     ...parsed,
     totalAmount: parsed.amount,
     suggestedCategory: parsed.category,
+    invoiceNumber: parsed.invoiceNumber || null,
+    vatAmount: parsed.vatAmount || null,
+    date: parsed.date || null,
     mode: 'gemini_flash_backend',
   };
 };

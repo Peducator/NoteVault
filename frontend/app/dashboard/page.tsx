@@ -251,6 +251,9 @@ function DashboardContent() {
             unitId: data.unitId || (currentUser as any)?.unitId,
             taxCode: data.taxCode,
             vendorName: data.vendorName,
+            invoiceNumber: data.invoiceNumber,
+            invoiceDate: data.invoiceDate,
+            vatAmount: data.vatAmount,
             receiptUrl: data.receiptUrl,
           });
         }}
