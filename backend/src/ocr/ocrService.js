@@ -20,36 +20,7 @@ Hãy phân tích hình ảnh chứng từ và trích xuất dữ liệu, CHỈ T
  */
 const lookupTaxCode = async () => null;
 
-let cachedWorkingModel = 'gemini-3.5-flash-lite';
 
-/**
- * Tự động lấy danh sách model khả dụng từ Google theo API Key hiện tại
- */
-const getAvailableModel = async (apiKey) => {
-  if (cachedWorkingModel) return cachedWorkingModel;
-
-  try {
-    const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
-    const res = await fetch(listUrl, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      const models = data.models || [];
-      const flashModel = models.find(m => 
-        (m.supportedGenerationMethods || []).includes('generateContent') && 
-        (m.name.includes('3.6-flash') || m.name.includes('3.7-flash') || m.name.includes('3.5-flash'))
-      );
-      if (flashModel) {
-        cachedWorkingModel = flashModel.name.replace(/^models\//, '');
-        console.log(`[OCR Service] Tự động chọn model Flash: "${cachedWorkingModel}"`);
-        return cachedWorkingModel;
-      }
-    }
-  } catch (err) {
-    console.warn('[OCR Service] Lỗi khi gọi ListModels:', err.message);
-  }
-
-  return 'gemini-3.6-flash';
-};
 
 /**
  * Bóc tách dữ liệu hóa đơn bằng Google Gemini Flash
@@ -77,80 +48,54 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
     throw error;
   }
 
-  // Danh sách model ưu tiên (Sử dụng model Flash tối ưu tốc độ và tỷ lệ thành công)
-  const candidateModels = [
-    process.env.GEMINI_MODEL,
-    'gemini-flash-lite-latest',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-1.5-flash',
-  ].filter(Boolean);
+  // Cố định 1 mô hình duy nhất (Mặc định: gemini-flash-lite-latest, hoặc chỉ định qua GEMINI_MODEL)
+  const targetModel = (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest').trim();
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey.trim()}`;
+  console.log(`[OCR Service] Bóc tách ảnh với mô hình cố định: "${targetModel}"...`);
 
-  // Loại bỏ model trùng nhau
-  const uniqueModels = [...new Set(candidateModels)];
-
-  let response = null;
-  let lastErrorText = '';
   const startTime = Date.now();
+  let response;
 
-  for (const model of uniqueModels) {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
-    console.log(`[OCR Service] Đang gửi ảnh sang model "${model}"...`);
-
-    try {
-      const res = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(15000), // Tối đa 15s cho mỗi model
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: GEMINI_SYSTEM_PROMPT },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: cleanBase64,
-                  },
+  try {
+    response = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(30000), // Cho phép tối đa 30s
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: GEMINI_SYSTEM_PROMPT },
+              {
+                inlineData: {
+                  mimeType,
+                  data: cleanBase64,
                 },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
+              },
+            ],
           },
-        }),
-      });
-
-      if (res.ok) {
-        response = res;
-        cachedWorkingModel = model; // Lưu lại model chạy thành công
-        console.log(`[OCR Service] 🎉 Model "${model}" bóc tách thành công sau ${Date.now() - startTime}ms!`);
-        break;
-      } else {
-        lastErrorText = await res.text();
-        console.warn(`[OCR Service] Model "${model}" trả về mã ${res.status}: ${lastErrorText.slice(0, 120)}`);
-        if (res.status === 503 || res.status === 429 || res.status === 404) {
-          continue;
-        } else {
-          const error = new Error(`Gemini API Error (${res.status}): ${lastErrorText}`);
-          error.statusCode = res.status >= 500 ? 502 : 400;
-          throw error;
-        }
-      }
-    } catch (fetchErr) {
-      console.warn('[OCR Service] Lỗi khi gọi model:', model, fetchErr.message);
-      lastErrorText = fetchErr.message;
-      continue;
-    }
-  }
-
-  if (!response) {
-    const error = new Error(`Gemini API Error: ${lastErrorText}`);
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+  } catch (fetchErr) {
+    console.error(`[OCR Service] Lỗi kết nối tới model "${targetModel}":`, fetchErr.message);
+    const error = new Error(`Lỗi kết nối tới Gemini API (${targetModel}): ${fetchErr.message}`);
     error.statusCode = 502;
     throw error;
   }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[OCR Service] Model "${targetModel}" trả về lỗi (${response.status}): ${errorText.slice(0, 200)}`);
+    const error = new Error(`Gemini API Error (${response.status}): ${errorText}`);
+    error.statusCode = response.status >= 500 ? 502 : 400;
+    throw error;
+  }
+
+  console.log(`[OCR Service] 🎉 Model "${targetModel}" bóc tách thành công sau ${Date.now() - startTime}ms!`);
 
   const data = await response.json();
   const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
