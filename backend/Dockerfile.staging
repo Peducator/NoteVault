@@ -2,8 +2,8 @@ FROM node:20-alpine AS staging
 
 WORKDIR /app
 
-# Cài đặt công cụ build cần thiết cho thư viện native
-RUN apk add --no-cache python3 make g++
+# Cài đặt công cụ build cần thiết cho thư viện native và OpenSSL cho Prisma
+RUN apk add --no-cache python3 make g++ openssl libc6-compat
 
 # Chỉ copy manifest để cache npm ci
 COPY package.json package-lock.json ./
