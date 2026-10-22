@@ -48,21 +48,12 @@ const createTransaction = async ({ userId, tenantId, unitId, categoryId, amount,
 
   // 1. Kiểm tra Unit: Bắt buộc phải là NÚT LÁ (không có đơn vị con)
   const unit = await prisma.unit.findFirst({
-    where: { id: resolvedUnitId, tenantId: resolvedTenantId },
-    include: {
-      _count: { select: { children: true } },
-    },
+    where: { id: resolvedUnitId, tenantId: resolvedTenantId, deletedAt: null },
   });
 
   if (!unit) {
     const error = new Error('Đơn vị không tồn tại hoặc không thuộc công ty này');
     error.statusCode = 404;
-    throw error;
-  }
-
-  if (unit._count.children > 0) {
-    const error = new Error(`Quy tắc hệ thống: Chi tiêu chỉ được phát sinh ở đơn vị lá (nhóm). Đơn vị "${unit.name}" là đơn vị cấp trên (nút cha), không được tạo chi tiêu trực tiếp.`);
-    error.statusCode = 400;
     throw error;
   }
 

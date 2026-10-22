@@ -115,7 +115,7 @@ describe('Transaction & Approval Module API Tests (/api/transactions)', () => {
   let rejectedTxId;
 
   describe('Tạo đề nghị chi tiêu (POST /api/transactions)', () => {
-    it('CHẶN TẠO CHI TIÊU Ở NÚT CHA: Khối KD có con nên không được tạo chi tiêu', async () => {
+    it('Khối KD tạo đề nghị chi tiêu thành công (trạng thái SUBMITTED chờ Root duyệt)', async () => {
       const res = await request(app)
         .post('/api/transactions')
         .set('Authorization', `Bearer ${kdToken}`)
@@ -126,8 +126,9 @@ describe('Transaction & Approval Module API Tests (/api/transactions)', () => {
           note: 'Mua máy chiếu',
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toContain('chỉ được phát sinh ở đơn vị lá');
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe('SUBMITTED');
     });
 
     it('Người ngoài không thuộc Nhóm Sales không thể tạo chi tiêu ở Sales', async () => {
