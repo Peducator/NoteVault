@@ -95,6 +95,8 @@ terraform/
 *.tfvars.json
 *.pem
 *.key
+nginx/ssl/
+nginx/ssl/*
 
 # ==========================================
 # 11. Database Seed Scripts (Never push to remote)
