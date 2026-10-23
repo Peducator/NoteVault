@@ -15,6 +15,10 @@ import {
   Image,
   Tooltip,
   App,
+  Drawer,
+  Descriptions,
+  Divider,
+  Alert,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -25,11 +29,16 @@ import {
   SafetyCertificateOutlined,
   AlertOutlined,
   SearchOutlined,
+  EyeOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  ShopOutlined,
+  BarcodeOutlined,
 } from '@ant-design/icons';
 import { Expense } from '../types/expense';
 import { formatVND } from '../lib/format';
 
-const { Text } = Typography;
+const { Text, Title, Paragraph } = Typography;
 
 interface ExpenseTableProps {
   expenses: Expense[];
@@ -58,10 +67,15 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
   isApproving,
   isRejecting,
   isPaying,
+  currentUserId,
+  currentUserRole,
 }) => {
   const { message } = App.useApp();
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('ALL');
   const [internalQuery, setInternalQuery] = useState('');
+
+  // Drawer detail state
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   // Rejection modal state
   const [rejectingExpenseId, setRejectingExpenseId] = useState<string | null>(null);
@@ -97,6 +111,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
       exp.purpose.toLowerCase().includes(query) ||
       exp.id.toLowerCase().includes(query) ||
       exp.category.toLowerCase().includes(query) ||
+      (exp.vendorName && exp.vendorName.toLowerCase().includes(query)) ||
       (exp.unitName && exp.unitName.toLowerCase().includes(query));
 
     return matchStatus && matchQuery;
@@ -115,10 +130,29 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
       }
       setRejectingExpenseId(null);
       setRejectionReason('');
+      if (selectedExpense && selectedExpense.id === rejectingExpenseId) {
+        setSelectedExpense((prev) => (prev ? { ...prev, approvalStatus: 'REJECTED', rejectionReason: rejectionReason.trim() } : null));
+      }
     } catch (err: any) {
       message.error(err?.message || 'Có lỗi xảy ra khi từ chối');
     } finally {
       setRejectionSubmitting(false);
+    }
+  };
+
+  const renderStatusTag = (status: string) => {
+    const norm = normalizeStatus(status);
+    switch (norm) {
+      case 'SUBMITTED':
+        return <Tag color="gold">Chờ duyệt</Tag>;
+      case 'APPROVED':
+        return <Tag color="green">Đã duyệt</Tag>;
+      case 'PAID':
+        return <Tag color="purple">Đã hoàn ứng</Tag>;
+      case 'REJECTED':
+        return <Tag color="red">Từ chối</Tag>;
+      default:
+        return <Tag>{norm}</Tag>;
     }
   };
 
@@ -127,9 +161,14 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
       title: 'Mục đích & Mã GD',
       key: 'purpose',
       render: (_, record) => (
-        <Flex vertical gap={2}>
+        <Flex
+          vertical
+          gap={2}
+          style={{ cursor: 'pointer' }}
+          onClick={() => setSelectedExpense(record)}
+        >
           <Space size={4}>
-            <Text strong>{record.purpose}</Text>
+            <Text strong style={{ color: '#1677ff' }}>{record.purpose}</Text>
             {record.scanStatus === 'CLEAN' && (
               <Tooltip title="Tệp an toàn (đã quét mã độc)">
                 <SafetyCertificateOutlined style={{ color: '#16a34a' }} />
@@ -189,21 +228,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
       title: 'Trạng thái',
       key: 'status',
       align: 'center',
-      render: (_, record) => {
-        const norm = normalizeStatus(record.approvalStatus);
-        switch (norm) {
-          case 'SUBMITTED':
-            return <Tag color="gold">Chờ duyệt</Tag>;
-          case 'APPROVED':
-            return <Tag color="green">Đã duyệt</Tag>;
-          case 'PAID':
-            return <Tag color="purple">Đã hoàn ứng</Tag>;
-          case 'REJECTED':
-            return <Tag color="red">Từ chối</Tag>;
-          default:
-            return <Tag>{norm}</Tag>;
-        }
-      },
+      render: (_, record) => renderStatusTag(record.approvalStatus),
     },
     {
       title: 'Thao tác',
@@ -214,6 +239,15 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
 
         return (
           <Space size="small">
+            <Tooltip title="Xem chi tiết phiếu chi">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => setSelectedExpense(record)}
+              />
+            </Tooltip>
+
             {record.receiptUrl && (
               <Tooltip title="Xem hóa đơn chứng từ">
                 <Image
@@ -231,27 +265,33 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
 
             {norm === 'SUBMITTED' && (
               <>
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<CheckOutlined />}
-                  loading={isApproving}
-                  onClick={() => onApprove && onApprove(record.id)}
-                >
-                  Duyệt
-                </Button>
-                <Button
-                  danger
-                  size="small"
-                  icon={<CloseOutlined />}
-                  loading={isRejecting}
-                  onClick={() => {
-                    setRejectingExpenseId(record.id);
-                    setRejectionReason('');
-                  }}
-                >
-                  Từ chối
-                </Button>
+                {currentUserId && record.userId === currentUserId && currentUserRole !== 'ROOT' ? (
+                  <Tag color="default" style={{ fontSize: 11 }}>Chờ cấp trên duyệt</Tag>
+                ) : (
+                  <>
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<CheckOutlined />}
+                      loading={isApproving}
+                      onClick={() => onApprove && onApprove(record.id)}
+                    >
+                      Duyệt
+                    </Button>
+                    <Button
+                      danger
+                      size="small"
+                      icon={<CloseOutlined />}
+                      loading={isRejecting}
+                      onClick={() => {
+                        setRejectingExpenseId(record.id);
+                        setRejectionReason('');
+                      }}
+                    >
+                      Từ chối
+                    </Button>
+                  </>
+                )}
               </>
             )}
 
@@ -285,10 +325,10 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
           </div>
           <Input
             prefix={<SearchOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-            placeholder="Tìm mã GD, người chi, đơn vị..."
+            placeholder="Tìm mã GD, người chi, đơn vị, đơn vị bán..."
             value={activeQuery}
             onChange={(e) => handleQueryChange(e.target.value)}
-            style={{ width: 260 }}
+            style={{ width: 280 }}
             allowClear
           />
         </Flex>
@@ -314,8 +354,219 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
         dataSource={filteredExpenses}
         rowKey="id"
         pagination={{ pageSize: 8, showSizeChanger: true }}
-        scroll={{ x: 700 }}
+        scroll={{ x: 750 }}
       />
+
+      {/* Drawer xem chi tiết khoản chi tiêu */}
+      <Drawer
+        title={
+          <Flex justify="space-between" align="center" style={{ width: '100%' }}>
+            <Space>
+              <Text strong style={{ fontSize: 16 }}>
+                Chi tiết khoản chi: {selectedExpense?.id}
+              </Text>
+              {selectedExpense && renderStatusTag(selectedExpense.approvalStatus)}
+            </Space>
+          </Flex>
+        }
+        open={!!selectedExpense}
+        onClose={() => setSelectedExpense(null)}
+        width={540}
+        destroyOnClose
+        extra={
+          selectedExpense && normalizeStatus(selectedExpense.approvalStatus) === 'SUBMITTED' ? (
+            currentUserId && selectedExpense.userId === currentUserId && currentUserRole !== 'ROOT' ? (
+              <Tag color="gold">Đang chờ cấp trên duyệt</Tag>
+            ) : (
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  loading={isApproving}
+                  onClick={async () => {
+                    if (onApprove) {
+                      await onApprove(selectedExpense.id);
+                      setSelectedExpense(null);
+                    }
+                  }}
+                >
+                  Phê duyệt
+                </Button>
+                <Button
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => {
+                    setRejectingExpenseId(selectedExpense.id);
+                    setRejectionReason('');
+                  }}
+                >
+                  Từ chối
+                </Button>
+              </Space>
+            )
+          ) : selectedExpense && normalizeStatus(selectedExpense.approvalStatus) === 'APPROVED' && onPay ? (
+            <Button
+              type="primary"
+              style={{ backgroundColor: '#16a34a' }}
+              icon={<DollarOutlined />}
+              loading={isPaying}
+              onClick={async () => {
+                await onPay(selectedExpense.id);
+                setSelectedExpense(null);
+              }}
+            >
+              Hoàn ứng ngay
+            </Button>
+          ) : null
+        }
+      >
+        {selectedExpense && (
+          <Flex vertical gap="middle">
+            {/* Banner số tiền nổi bật */}
+            <Card
+              size="small"
+              style={{
+                background: 'linear-gradient(135deg, #f0f7ff 0%, #e6f4ff 100%)',
+                borderColor: '#91caff',
+                textAlign: 'center',
+                padding: '12px 0',
+              }}
+            >
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                TỔNG SỐ TIỀN CHI TIÊU
+              </Text>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#0958d9', margin: '4px 0' }}>
+                {formatVND(selectedExpense.amount)}
+              </div>
+              <Text strong style={{ fontSize: 14 }}>
+                {selectedExpense.purpose}
+              </Text>
+            </Card>
+
+            {/* Cảnh báo lý do từ chối nếu có */}
+            {selectedExpense.rejectionReason && (
+              <Alert
+                message="Lý do từ chối"
+                description={selectedExpense.rejectionReason}
+                type="error"
+                showIcon
+              />
+            )}
+
+            {/* Chi tiết thông tin giao dịch */}
+            <Descriptions
+              title="Thông tin phiếu chi"
+              bordered
+              size="small"
+              column={1}
+            >
+              <Descriptions.Item label="Người thực hiện chi">
+                <Space>
+                  <UserOutlined />
+                  <Text strong>{selectedExpense.user}</Text>
+                </Space>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Đơn vị / Phòng ban">
+                {selectedExpense.unitName || 'Toàn công ty'}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Danh mục chi phí">
+                <Tag color="blue">{selectedExpense.category}</Tag>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Ngày lập / Ngày chi">
+                <Space>
+                  <CalendarOutlined />
+                  <span>{selectedExpense.date}</span>
+                </Space>
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Quét mã độc S3">
+                {selectedExpense.scanStatus === 'CLEAN' ? (
+                  <Tag color="success" icon={<SafetyCertificateOutlined />}>
+                    Đã kiểm tra an toàn (CLEAN)
+                  </Tag>
+                ) : selectedExpense.scanStatus === 'INFECTED' ? (
+                  <Tag color="error" icon={<AlertOutlined />}>
+                    Phát hiện mã độc
+                  </Tag>
+                ) : (
+                  <Tag color="default">Chờ kiểm tra</Tag>
+                )}
+              </Descriptions.Item>
+
+              {selectedExpense.vendorName && (
+                <Descriptions.Item label="Đơn vị bán hàng">
+                  <Space>
+                    <ShopOutlined />
+                    <Text strong>{selectedExpense.vendorName}</Text>
+                  </Space>
+                </Descriptions.Item>
+              )}
+
+              {selectedExpense.taxCode && (
+                <Descriptions.Item label="Mã số thuế (MST)">
+                  <Space>
+                    <BarcodeOutlined />
+                    <Text code>{selectedExpense.taxCode}</Text>
+                  </Space>
+                </Descriptions.Item>
+              )}
+
+              {selectedExpense.invoiceNumber && (
+                <Descriptions.Item label="Số hóa đơn">
+                  <Text code>{selectedExpense.invoiceNumber}</Text>
+                </Descriptions.Item>
+              )}
+
+              {selectedExpense.vatAmount !== undefined && (
+                <Descriptions.Item label="Tiền thuế VAT">
+                  {formatVND(selectedExpense.vatAmount)}
+                </Descriptions.Item>
+              )}
+
+              {selectedExpense.approverName && (
+                <Descriptions.Item label="Người phê duyệt">
+                  <Text strong style={{ color: '#16a34a' }}>
+                    {selectedExpense.approverName}
+                  </Text>
+                  {selectedExpense.approvedAt && ` • ${selectedExpense.approvedAt}`}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
+            {/* Ảnh hóa đơn / Chứng từ gốc */}
+            <Divider titlePlacement="start" style={{ margin: '8px 0' }}>
+              Chứng từ & Hóa đơn gốc
+            </Divider>
+
+            {selectedExpense.receiptUrl ? (
+              <Flex vertical align="center" gap="small">
+                <Image
+                  src={selectedExpense.receiptUrl}
+                  alt="Ảnh hóa đơn"
+                  style={{
+                    maxHeight: 280,
+                    objectFit: 'contain',
+                    borderRadius: 8,
+                    border: '1px solid #d9d9d9',
+                  }}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Nhấp vào ảnh để phóng to, xoay ảnh và đối soát
+                </Text>
+              </Flex>
+            ) : (
+              <Card size="small" style={{ textAlign: 'center', background: '#fafafa' }}>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  Khoản chi này không đính kèm tệp ảnh hóa đơn.
+                </Text>
+              </Card>
+            )}
+          </Flex>
+        )}
+      </Drawer>
 
       {/* Modal từ chối khoản chi */}
       <Modal

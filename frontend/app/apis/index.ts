@@ -7,3 +7,4 @@ export * from './expenseApi';
 export * from './userApi';
 export * from './notificationApi';
 export * from './categoryApi';
+export * from './bankingApi';

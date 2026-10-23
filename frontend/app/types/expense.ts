@@ -83,6 +83,11 @@ export interface Expense {
   unitName?: string;
   rejectionReason?: string | null;
   userId?: number;
+  approverName?: string;
+  approvedAt?: string;
+  invoiceNumber?: string;
+  vatAmount?: number;
+  categoryId?: number;
 }
 
 export interface DepartmentBudget {

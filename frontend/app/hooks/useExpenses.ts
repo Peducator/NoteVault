@@ -7,6 +7,7 @@ import { expenseApi } from '../apis/expenseApi';
 export interface NewExpensePayload {
   amount: number;
   category: string;
+  categoryId?: number;
   purpose: string;
   unitId?: number;
   taxCode?: string;
@@ -85,6 +86,11 @@ async function fetchExpenses(): Promise<Expense[]> {
         unitId: tx.unitId,
         unitName: tx.unit?.name,
         rejectionReason: tx.rejectionReason,
+        approverName: tx.approver?.name || tx.approver?.email,
+        approvedAt: tx.approvedAt ? String(tx.approvedAt).split('T')[0] : undefined,
+        invoiceNumber: tx.invoiceNumber,
+        vatAmount: tx.vatAmount ? Number(tx.vatAmount) : undefined,
+        categoryId: tx.categoryId,
       };
     });
 
@@ -142,7 +148,8 @@ export function useExpenses() {
 
         const res = await expenseApi.createTransaction({
           amount: payload.amount,
-          categoryId: 1, // Fallback default category
+          categoryId: payload.categoryId,
+          category: payload.category,
           unitId: payload.unitId,
           note: noteParts,
           transactionDate: payload.invoiceDate ? new Date(payload.invoiceDate).toISOString() : new Date().toISOString(),

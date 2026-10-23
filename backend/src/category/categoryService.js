@@ -1,21 +1,68 @@
 const prisma = require('../config/prisma');
 
+const DEFAULT_CATEGORIES = [
+  { name: 'Ăn uống', type: 'EXPENSE', icon: 'coffee' },
+  { name: 'Đi lại', type: 'EXPENSE', icon: 'flight' },
+  { name: 'Mua sắm', type: 'EXPENSE', icon: 'shopping' },
+  { name: 'Phần mềm', type: 'EXPENSE', icon: 'cloud' },
+  { name: 'Khác', type: 'EXPENSE', icon: 'more' },
+];
+
+/**
+ * Tự động khởi tạo 5 danh mục mặc định cho tenant nếu chưa có
+ */
+const seedDefaultCategoriesForTenant = async (tenantId) => {
+  const resolvedTenantId = Number(tenantId);
+  if (!resolvedTenantId) return [];
+
+  const existing = await prisma.category.findMany({
+    where: { tenantId: resolvedTenantId },
+    orderBy: { id: 'asc' },
+  });
+
+  if (existing.length > 0) {
+    return existing;
+  }
+
+  const created = [];
+  for (const cat of DEFAULT_CATEGORIES) {
+    created.push(
+      await prisma.category.create({
+        data: {
+          tenantId: resolvedTenantId,
+          name: cat.name,
+          type: cat.type,
+          icon: cat.icon,
+        },
+      })
+    );
+  }
+  return created;
+};
+
 /**
  * Lấy danh sách danh mục thuộc tenant (cá nhân hóa theo tenant)
  */
 const getCategories = async (tenantId) => {
   const resolvedTenantId = tenantId ? Number(tenantId) : null;
 
+  if (resolvedTenantId) {
+    const tenantCats = await prisma.category.findMany({
+      where: { tenantId: resolvedTenantId },
+      orderBy: { id: 'asc' },
+    });
+
+    if (tenantCats.length > 0) {
+      return tenantCats;
+    }
+
+    // Tự động seed nếu tenant chưa có danh mục
+    return await seedDefaultCategoriesForTenant(resolvedTenantId);
+  }
+
   return await prisma.category.findMany({
-    where: {
-      OR: [
-        { tenantId: resolvedTenantId },
-        { tenantId: null }, // Danh mục mẫu hệ thống dùng chung
-      ],
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { tenantId: null },
+    orderBy: { id: 'asc' },
   });
 };
 
@@ -180,4 +227,5 @@ module.exports = {
   createCategory,
   updateCategory,
   deleteCategory,
+  seedDefaultCategoriesForTenant,
 };

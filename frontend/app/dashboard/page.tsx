@@ -12,6 +12,8 @@ import { ExpenseModal } from '../components/ExpenseModal';
 import { AdminTeamManagement } from '../components/AdminTeamManagement';
 import { useExpenses } from '../hooks/useExpenses';
 import { userApi, UserProfile } from '../apis/userApi';
+import { CategoryManagementModal } from '../components/CategoryManagementModal';
+import { BankingModal } from '../components/BankingModal';
 import { authApi } from '../apis/authApi';
 
 const { Content } = Layout;
@@ -27,6 +29,9 @@ function DashboardContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isBankingModalOpen, setIsBankingModalOpen] = useState(false);
 
   const {
     expenses,
@@ -44,6 +49,10 @@ function DashboardContent() {
   useEffect(() => {
     if (tabParam === 'logout') {
       handleLogout();
+    } else if (tabParam === 'categories') {
+      setIsCategoryModalOpen(true);
+    } else if (tabParam === 'banking') {
+      setIsBankingModalOpen(true);
     } else if (tabParam) {
       setActiveTab(tabParam);
     }
@@ -94,6 +103,14 @@ function DashboardContent() {
   const handleTabChange = (tabId: string) => {
     if (tabId === 'logout') {
       handleLogout();
+      return;
+    }
+    if (tabId === 'categories') {
+      setIsCategoryModalOpen(true);
+      return;
+    }
+    if (tabId === 'banking') {
+      setIsBankingModalOpen(true);
       return;
     }
 
@@ -246,6 +263,7 @@ function DashboardContent() {
           setIsModalOpen(false);
           await addExpense({
             amount: Number(data.amount) || 0,
+            categoryId: data.categoryId,
             category: data.category || 'Ăn uống',
             purpose: data.purpose || 'Chi phí công tác',
             unitId: data.unitId || (currentUser as any)?.unitId,
@@ -257,6 +275,17 @@ function DashboardContent() {
             receiptUrl: data.receiptUrl,
           });
         }}
+      />
+
+      <CategoryManagementModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onCategoriesChanged={refetch}
+      />
+
+      <BankingModal
+        isOpen={isBankingModalOpen}
+        onClose={() => setIsBankingModalOpen(false)}
       />
     </Layout>
   );

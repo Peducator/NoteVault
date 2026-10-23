@@ -7,15 +7,21 @@ const unitTreeHelper = require('../unit/unitTreeHelper');
  * Trạng thái mặc định: SUBMITTED
  * Tiền: BigInt VND
  */
-const createTransaction = async ({ userId, tenantId, unitId, categoryId, amount, note, transactionDate, s3Key, scanStatus = 'CLEAN' }) => {
+const createTransaction = async ({
+  userId,
+  tenantId,
+  unitId,
+  categoryId,
+  categoryName,
+  category: categoryParam,
+  amount,
+  note,
+  transactionDate,
+  s3Key,
+  scanStatus = 'CLEAN',
+}) => {
   if (!unitId) {
     const error = new Error('Đơn vị (unitId) là bắt buộc');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (!categoryId) {
-    const error = new Error('Danh mục (categoryId) là bắt buộc');
     error.statusCode = 400;
     throw error;
   }
@@ -44,7 +50,6 @@ const createTransaction = async ({ userId, tenantId, unitId, categoryId, amount,
   const resolvedTenantId = Number(tenantId);
   const resolvedUnitId = Number(unitId);
   const resolvedUserId = Number(userId);
-  const resolvedCatId = Number(categoryId);
 
   // 1. Kiểm tra Unit: Bắt buộc phải là NÚT LÁ (không có đơn vị con)
   const unit = await prisma.unit.findFirst({
@@ -81,16 +86,36 @@ const createTransaction = async ({ userId, tenantId, unitId, categoryId, amount,
     throw error;
   }
 
-  // 3. Kiểm tra danh mục: Phải thuộc cùng tenant (chống rò rỉ chéo tenant)
-  const category = await prisma.category.findFirst({
-    where: { id: resolvedCatId, tenantId: resolvedTenantId },
-  });
+  // 3. Phân giải danh mục chi tiêu hợp lệ (Hỗ trợ cả categoryId, categoryName, hoặc tự động fallback)
+  const categoryService = require('../category/categoryService');
+  let validCategory = null;
 
-  if (!category) {
-    const error = new Error('Danh mục chi tiêu không tồn tại hoặc không thuộc công ty này');
-    error.statusCode = 404;
-    throw error;
+  if (categoryId && !isNaN(Number(categoryId))) {
+    validCategory = await prisma.category.findFirst({
+      where: { id: Number(categoryId), tenantId: resolvedTenantId },
+    });
   }
+
+  const targetName = categoryName || categoryParam || (typeof categoryId === 'string' && isNaN(Number(categoryId)) ? categoryId : null);
+  if (!validCategory && targetName) {
+    const searchStr = String(targetName).trim().toLowerCase();
+    const tenantCats = await categoryService.getCategories(resolvedTenantId);
+    validCategory = tenantCats.find((c) => 
+      c.name.toLowerCase().includes(searchStr) || searchStr.includes(c.name.toLowerCase())
+    );
+  }
+
+  if (!validCategory) {
+    const tenantCats = await categoryService.getCategories(resolvedTenantId);
+    validCategory = tenantCats[0];
+  }
+
+  if (!validCategory) {
+    const seeded = await categoryService.seedDefaultCategoriesForTenant(resolvedTenantId);
+    validCategory = seeded[0];
+  }
+
+  const resolvedCatId = validCategory ? validCategory.id : 1;
 
   // 4. Tạo giao dịch (Mặc định SUBMITTED)
   const tx = await prisma.transaction.create({

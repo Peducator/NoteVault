@@ -95,6 +95,14 @@ const signup = async ({ email, password, tenantId, companyName, name, role }) =>
       newUser.unitId = rootUnit.id;
       newUser.unit = rootUnit;
     }
+
+    // Tự động khởi tạo 5 danh mục chi tiêu chuẩn cho công ty mới
+    try {
+      const categoryService = require('../category/categoryService');
+      await categoryService.seedDefaultCategoriesForTenant(resolvedTenantId);
+    } catch (catErr) {
+      // Non-blocking
+    }
   }
 
   return newUser;

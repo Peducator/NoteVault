@@ -15,15 +15,18 @@ export const notificationApi = {
   /**
    * Lấy danh sách thông báo của người dùng hiện tại
    */
-  async getNotifications(params?: { unreadOnly?: boolean; page?: number; limit?: number }): Promise<{
+  async getNotifications(params?: { unreadOnly?: boolean; isRead?: boolean; page?: number; limit?: number }): Promise<{
     success: boolean;
     data: {
-      notifications: NotificationItem[];
+      total?: number;
       unreadCount: number;
-    } | NotificationItem[];
+      items: NotificationItem[];
+      notifications?: NotificationItem[];
+    };
   }> {
     const query = new URLSearchParams();
-    if (params?.unreadOnly) query.append('unreadOnly', 'true');
+    if (params?.unreadOnly || params?.isRead === false) query.append('isRead', 'false');
+    else if (params?.isRead === true) query.append('isRead', 'true');
     if (params?.page) query.append('page', params.page.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
 

@@ -12,6 +12,7 @@ import {
   BankOutlined,
   SafetyCertificateFilled,
   CloseOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 
@@ -51,6 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { key: 'expenses', icon: <FileDoneOutlined style={{ fontSize: 16 }} />, label: 'Hóa đơn & Chứng từ' },
     { key: 'units', icon: <ApartmentOutlined style={{ fontSize: 16 }} />, label: 'Cây Đơn Vị & Ngân Sách' },
     { key: 'users', icon: <TeamOutlined style={{ fontSize: 16 }} />, label: 'Thành viên tổ chức' },
+    { key: 'categories', icon: <TagsOutlined style={{ fontSize: 16 }} />, label: 'Danh mục chi phí' },
+    { key: 'banking', icon: <BankOutlined style={{ fontSize: 16 }} />, label: 'Tài khoản hoàn ứng' },
   ];
 
   const sidebarContent = (

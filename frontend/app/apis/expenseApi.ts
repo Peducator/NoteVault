@@ -41,17 +41,20 @@ export const expenseApi = {
   /**
    * Tạo giao dịch chi tiêu / hóa đơn mới (yêu cầu unitId là đơn vị lá)
    */
-  async createTransaction(payload: CreateTransactionPayload) {
+  async createTransaction(payload: CreateTransactionPayload & { category?: string }) {
     return apiFetch('/api/transactions', {
       method: 'POST',
       body: JSON.stringify({
         amount: payload.amount,
-        categoryId: payload.categoryId || 1,
+        categoryId: payload.categoryId,
+        categoryName: payload.categoryName || payload.category,
         unitId: payload.unitId,
         note: payload.note || 'Chi phí công tác',
         transactionDate: payload.transactionDate || new Date().toISOString(),
         scanStatus: payload.scanStatus || 'CLEAN',
         s3Key: payload.s3Key || payload.receiptUrl,
+        taxCode: payload.taxCode,
+        vendorName: payload.vendorName,
       }),
     });
   },
