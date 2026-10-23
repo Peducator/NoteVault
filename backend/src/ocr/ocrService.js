@@ -82,7 +82,7 @@ const scanInvoice = async ({ imageBase64, mimeType = 'image/jpeg' }) => {
       }),
     });
   } catch (fetchErr) {
-    console.error(`[OCR Service] Lỗi kết nối tới model "${targetModel}":`, fetchErr.message);
+    console.error('[OCR Service] Lỗi kết nối tới model "%s":', targetModel, fetchErr.message);
     const error = new Error(`Lỗi kết nối tới Gemini API (${targetModel}): ${fetchErr.message}`);
     error.statusCode = 502;
     throw error;
