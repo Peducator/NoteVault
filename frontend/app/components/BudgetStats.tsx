@@ -69,7 +69,7 @@ export const BudgetStats: React.FC<BudgetStatsProps> = ({
               showInfo={false}
               size={['100%', 5]}
               strokeColor={usedPercentage > 85 ? token.colorError : token.colorPrimary}
-              trailColor={token.colorFillSecondary}
+              railColor={token.colorFillSecondary}
             />
 
             <Flex justify="space-between" style={{ marginTop: 8 }}>

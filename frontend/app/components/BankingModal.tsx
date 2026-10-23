@@ -16,6 +16,7 @@ import {
   Space,
   Empty,
   Badge,
+  theme,
 } from 'antd';
 import {
   BankOutlined,
@@ -55,6 +56,7 @@ export const BankingModal: React.FC<BankingModalProps> = ({
   onUpdated,
 }) => {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [accounts, setAccounts] = useState<BankingAccount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -151,7 +153,7 @@ export const BankingModal: React.FC<BankingModalProps> = ({
     <Modal
       title={
         <Flex align="center" gap="small">
-          <BankOutlined style={{ color: '#1677ff', fontSize: 18 }} />
+          <BankOutlined style={{ color: token.colorPrimary, fontSize: 18 }} />
           <span>Tài Khoản Ngân Hàng Hoàn Ứng Cá Nhân</span>
         </Flex>
       }
@@ -163,7 +165,7 @@ export const BankingModal: React.FC<BankingModalProps> = ({
         </Button>,
       ]}
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <Flex vertical gap="middle" style={{ marginTop: 12 }}>
         <Text type="secondary" style={{ fontSize: 13 }}>

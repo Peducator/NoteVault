@@ -257,7 +257,7 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
                   height={28}
                   style={{ objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
                   preview={{
-                    mask: <FileImageOutlined style={{ fontSize: 12 }} />,
+                    cover: <FileImageOutlined style={{ fontSize: 12 }} />,
                   }}
                 />
               </Tooltip>
@@ -371,8 +371,8 @@ export const ExpenseTable: React.FC<ExpenseTableProps> = ({
         }
         open={!!selectedExpense}
         onClose={() => setSelectedExpense(null)}
-        width={540}
-        destroyOnClose
+        size={540}
+        destroyOnHidden
         extra={
           selectedExpense && normalizeStatus(selectedExpense.approvalStatus) === 'SUBMITTED' ? (
             currentUserId && selectedExpense.userId === currentUserId && currentUserRole !== 'ROOT' ? (

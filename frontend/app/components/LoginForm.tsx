@@ -58,11 +58,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
       if (onSubmitSuccess) onSubmitSuccess(result.data?.user);
     } catch (err: any) {
-      if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('Failed to fetch'))) {
-        setErrorMessage('Không thể kết nối đến máy chủ Backend (Port 5000). Vui lòng đảm bảo server backend đang chạy.');
-      } else {
-        setErrorMessage(err.message || 'Đã có lỗi xảy ra trong quá trình đăng nhập');
-      }
+      setErrorMessage(err.message || 'Đã có lỗi xảy ra trong quá trình đăng nhập');
     } finally {
       setIsLoading(false);
     }

@@ -16,6 +16,7 @@ import {
   Card,
   Flex,
   Divider,
+  theme,
 } from 'antd';
 import {
   PlusOutlined,
@@ -54,6 +55,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
   onCategoriesChanged,
 }) => {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -209,7 +211,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
     <Modal
       title={
         <Flex align="center" gap="small">
-          <TagsOutlined style={{ color: '#1890ff' }} />
+          <TagsOutlined style={{ color: token.colorPrimary }} />
           <span>Quản Lý Danh Mục Chi Phí Doanh Nghiệp</span>
         </Flex>
       }
@@ -221,7 +223,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
         </Button>,
       ]}
       width={680}
-      destroyOnClose
+      destroyOnHidden
     >
       <Flex vertical gap="middle" style={{ marginTop: 12 }}>
         <Flex justify="space-between" align="center">

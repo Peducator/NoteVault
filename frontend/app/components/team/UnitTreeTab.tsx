@@ -281,7 +281,7 @@ export const UnitTreeTab: React.FC<UnitTreeTabProps> = ({
                           {depth === 0 && (
                             <Tag
                               color="blue"
-                              bordered={false}
+                              variant="filled"
                               style={{
                                 fontSize: 10,
                                 lineHeight: '18px',
@@ -308,7 +308,7 @@ export const UnitTreeTab: React.FC<UnitTreeTabProps> = ({
                     {isLeaf ? (
                       <Tag
                         color="success"
-                        bordered={false}
+                        variant="filled"
                         style={{
                           borderRadius: 12,
                           padding: '1px 10px',
@@ -321,7 +321,7 @@ export const UnitTreeTab: React.FC<UnitTreeTabProps> = ({
                     ) : (
                       <Tag
                         color="purple"
-                        bordered={false}
+                        variant="filled"
                         style={{
                           borderRadius: 12,
                           padding: '1px 10px',

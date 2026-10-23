@@ -68,11 +68,7 @@ export const CompanyRegister: React.FC<CompanyRegisterProps> = ({
         if (onSubmitSuccess) onSubmitSuccess();
       }, 1500);
     } catch (err: any) {
-      if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('Failed to fetch'))) {
-        setErrorMessage('Không thể kết nối đến máy chủ Backend (Port 5000). Vui lòng đảm bảo server backend đang chạy.');
-      } else {
-        setErrorMessage(err.message || 'Đã có lỗi xảy ra trong quá trình đăng ký');
-      }
+      setErrorMessage(err.message || 'Đã có lỗi xảy ra trong quá trình đăng ký');
     } finally {
       setIsLoading(false);
     }

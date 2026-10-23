@@ -54,7 +54,7 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
                       {formatVND(spent)}
                     </Text>
                   </Flex>
-                  <Progress percent={percent} size="small" strokeColor={token.colorPrimary} trailColor={token.colorFillSecondary} />
+                  <Progress percent={percent} size="small" strokeColor={token.colorPrimary} railColor={token.colorFillSecondary} />
                 </div>
               );
             })}
